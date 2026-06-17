@@ -1,0 +1,19 @@
+package io.github.mrergos.gymcrm.entity;
+
+import lombok.*;
+
+@Getter
+@Setter
+@ToString
+@EqualsAndHashCode
+@AllArgsConstructor
+@RequiredArgsConstructor
+@NoArgsConstructor
+public abstract class User {
+    private Long id;
+    private String firstname;
+    private String lastname;
+    private String username;
+    private String password;
+    private boolean isActive;
+}
