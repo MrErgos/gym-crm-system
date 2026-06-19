@@ -12,7 +12,5 @@ public interface TrainerDao {
 
     List<Trainer> findAll();
 
-    void delete(Long id);
-
     boolean existsByUsername(String username);
 }
