@@ -2,7 +2,7 @@ package io.github.mrergos.gymcrm.entity;
 
 import lombok.*;
 
-import java.util.Date;
+import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -12,6 +12,7 @@ import java.util.Date;
 @RequiredArgsConstructor
 @NoArgsConstructor
 public class Trainee extends User {
-    private Date dateOfBirth;
+    private LocalDate dateOfBirth;
     private String address;
+    private Long userId;
 }

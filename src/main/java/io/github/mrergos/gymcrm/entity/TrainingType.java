@@ -10,6 +10,5 @@ import lombok.*;
 @RequiredArgsConstructor
 @NoArgsConstructor
 public class TrainingType {
-    private Long id;
     private String trainingTypeName;
 }

@@ -2,7 +2,7 @@ package io.github.mrergos.gymcrm.entity;
 
 import lombok.*;
 
-import java.util.Date;
+import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -17,6 +17,6 @@ public class Training {
     private Long trainerId;
     private String trainingName;
     private Long trainingType;
-    private Date trainingDate;
+    private LocalDate trainingDate;
     private Integer trainingDuration;
 }

@@ -11,4 +11,5 @@ import lombok.*;
 @NoArgsConstructor
 public class Trainer extends User {
     private Long specializationId;
+    private Long userId;
 }
