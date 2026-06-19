@@ -8,9 +8,8 @@ import java.time.LocalDate;
 @Setter
 @ToString
 @EqualsAndHashCode
-@AllArgsConstructor
-@RequiredArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class Training {
     private Long id;
     private Long traineeId;

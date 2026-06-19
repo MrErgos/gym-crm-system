@@ -7,7 +7,6 @@ import lombok.*;
 @ToString
 @EqualsAndHashCode
 @AllArgsConstructor
-@RequiredArgsConstructor
 @NoArgsConstructor
 public abstract class User {
     private String firstname;
