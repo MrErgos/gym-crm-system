@@ -21,7 +21,7 @@ import java.util.Map;
 public class StorageInitializer {
     private static final Logger log = LoggerFactory.getLogger(StorageInitializer.class);
 
-    @Value("${storage.file.path}")
+    @Value("${storage.file.path:}")
     private String filePath;
 
     private Map<Long, Trainee> traineeStorage;
@@ -60,6 +60,11 @@ public class StorageInitializer {
     }
 
     public void loadStorage() {
+        if (filePath == null || filePath.isBlank()) {
+            log.warn("Filepath is blank. Storage will be empty.");
+            return;
+        }
+
         log.info("Loading storage from file: {}", filePath);
 
         Resource resource = resourceLoader.getResource(filePath);
@@ -70,6 +75,10 @@ public class StorageInitializer {
         }
 
         try (InputStream is = resource.getInputStream()) {
+            if (!resource.isFile()) {
+                log.warn("Filepath is pointing to directory: {}. Storage will be empty.", filePath);
+                return;
+            }
             StorageDTO data = objectMapper.readValue(is, StorageDTO.class);
             populateStorage(data);
         } catch (IOException e) {
