@@ -14,10 +14,12 @@ public class Trainee extends User {
     private String address;
     private Long userId;
 
-    public Trainee(String firstname, String lastname, String username, String password, boolean isActive,
-                   LocalDate dateOfBirth, String address) {
-        super(firstname, lastname, username, password, isActive);
+    public Trainee(String firstName, String lastName, String username, String password,
+                   boolean isActive,
+                   LocalDate dateOfBirth, String address, Long userId) {
+        super(firstName, lastName, username, password, isActive);
         this.dateOfBirth = dateOfBirth;
         this.address = address;
+        this.userId = userId;
     }
 }
