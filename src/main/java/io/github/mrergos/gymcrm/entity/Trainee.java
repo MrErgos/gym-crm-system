@@ -22,4 +22,11 @@ public class Trainee extends User {
         this.address = address;
         this.userId = userId;
     }
+
+    public Trainee(Trainee other) {
+        super(other);
+        this.dateOfBirth = other.dateOfBirth;
+        this.address = other.address;
+        this.userId = other.userId;
+    }
 }

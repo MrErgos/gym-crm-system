@@ -17,4 +17,10 @@ public class Trainer extends User {
         this.specialization = specialization;
         this.userId = userId;
     }
+
+    public Trainer(Trainer other) {
+        super(other);
+        this.specialization = other.specialization != null ? new TrainingType(other.specialization) : null;
+        this.userId = other.userId;
+    }
 }

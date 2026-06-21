@@ -10,4 +10,8 @@ import lombok.*;
 @AllArgsConstructor
 public class TrainingType {
     private String trainingTypeName;
+
+    public TrainingType(TrainingType other) {
+        this.trainingTypeName = other.trainingTypeName;
+    }
 }
