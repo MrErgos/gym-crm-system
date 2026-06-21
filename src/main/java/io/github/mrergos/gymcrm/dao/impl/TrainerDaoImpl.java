@@ -24,21 +24,22 @@ public class TrainerDaoImpl implements TrainerDao {
 
     @Override
     public Trainer save(Trainer trainer) {
-        if (trainer.getUserId() == null) {
-            trainer.setUserId(generateId());
-            log.info("Creating new trainer with username: {}", trainer.getUsername());
+        Trainer toSave = new Trainer(trainer);
+        if (toSave.getUserId() == null) {
+            toSave.setUserId(generateId());
+            log.info("Creating new trainer with username: {}", toSave.getUsername());
         } else {
-            log.info("Updating trainer with id: {}", trainer.getUserId());
+            log.info("Updating trainer with id: {}", toSave.getUserId());
         }
-        storage.put(trainer.getUserId(), trainer);
-        log.debug("Trainer saved: id={}, username={}", trainer.getUserId(), trainer.getUsername());
-        return trainer;
+        storage.put(toSave.getUserId(), toSave);
+        log.debug("Trainer saved: id={}, username={}", toSave.getUserId(), toSave.getUsername());
+        return new Trainer(toSave);
     }
 
     @Override
     public Optional<Trainer> findById(Long id) {
         log.debug("Finding trainer by id: {}", id);
-        Optional<Trainer> result = Optional.ofNullable(storage.get(id));
+        Optional<Trainer> result = Optional.ofNullable(storage.get(id)).map(Trainer::new);
         if (result.isEmpty()) {
             log.warn("Trainer not found by id: {}", id);
         }
@@ -48,7 +49,9 @@ public class TrainerDaoImpl implements TrainerDao {
     @Override
     public List<Trainer> findAll() {
         log.debug("Fetching all trainers, total: {}", storage.size());
-        return new ArrayList<>(storage.values());
+        return storage.values().stream()
+                .map(Trainer::new)
+                .toList();
     }
 
     @Override

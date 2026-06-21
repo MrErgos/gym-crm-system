@@ -24,22 +24,23 @@ public class TrainingDaoImpl implements TrainingDao {
 
     @Override
     public Training save(Training training) {
-        if (training.getId() == null) {
-            training.setId(generateId());
+        Training toSave = new Training(training);
+        if (toSave.getId() == null) {
+            toSave.setId(generateId());
             log.info("Creating new training: '{}' for traineeId={}, trainerId={}",
-                    training.getTrainingName(),
-                    training.getTraineeId(), training.getTrainerId());
+                    toSave.getTrainingName(),
+                    toSave.getTraineeId(), toSave.getTrainerId());
         } else {
-            log.info("Updating training with id: {}", training.getId());
+            log.info("Updating training with id: {}", toSave.getId());
         }
-        storage.put(training.getId(), training);
-        log.debug("Training saved: id={}, name={}", training.getId(), training.getTrainingName());
-        return training;
+        storage.put(toSave.getId(), toSave);
+        log.debug("Training saved: id={}, name={}", toSave.getId(), toSave.getTrainingName());
+        return new Training(toSave);
     }
 
     @Override
     public Optional<Training> findById(Long id) {
-        Optional<Training> result = Optional.ofNullable(storage.get(id));
+        Optional<Training> result = Optional.ofNullable(storage.get(id)).map(Training::new);
         if (result.isEmpty()) {
             log.warn("Training not found by id: {}", id);
         }
@@ -49,7 +50,9 @@ public class TrainingDaoImpl implements TrainingDao {
     @Override
     public List<Training> findAll() {
         log.debug("Fetching all trainings, total: {}", storage.size());
-        return new ArrayList<>(storage.values());
+        return storage.values().stream()
+                .map(Training::new)
+                .toList();
     }
 
     private Long generateId() {

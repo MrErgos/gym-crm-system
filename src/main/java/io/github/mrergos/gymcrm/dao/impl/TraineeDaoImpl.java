@@ -24,22 +24,24 @@ public class TraineeDaoImpl implements TraineeDao {
 
     @Override
     public Trainee save(Trainee trainee) {
-        if (trainee.getUserId() == null) {
-            trainee.setUserId(generateId());
-            log.info("Creating new trainee with username: {}", trainee.getUsername());
+        Trainee toSave = new Trainee(trainee);
+
+        if (toSave.getUserId() == null) {
+            toSave.setUserId(generateId());
+            log.info("Creating new trainee with username: {}", toSave.getUsername());
         } else {
-            log.info("Updating trainee with id: {}", trainee.getUserId());
+            log.info("Updating trainee with id: {}", toSave.getUserId());
         }
 
-        storage.put(trainee.getUserId(), trainee);
-        log.debug("Trainee saved: id={}, username={}", trainee.getUserId(), trainee.getUsername());
-        return trainee;
+        storage.put(toSave.getUserId(), toSave);
+        log.debug("Trainee saved: id={}, username={}", toSave.getUserId(), toSave.getUsername());
+        return new Trainee(toSave);
     }
 
     @Override
     public Optional<Trainee> findById(Long id) {
         log.debug("Finding trainee by id: {}", id);
-        Optional<Trainee> result = Optional.ofNullable(storage.get(id));
+        Optional<Trainee> result = Optional.ofNullable(storage.get(id)).map(Trainee::new);
         if (result.isEmpty()) {
             log.warn("Trainee not found by id: {}", id);
         }
@@ -49,7 +51,9 @@ public class TraineeDaoImpl implements TraineeDao {
     @Override
     public List<Trainee> findAll() {
         log.debug("Fetching all trainees, total: {}", storage.size());
-        return new ArrayList<>(storage.values());
+        return storage.values().stream()
+                .map(Trainee::new)
+                .toList();
     }
 
     @Override
