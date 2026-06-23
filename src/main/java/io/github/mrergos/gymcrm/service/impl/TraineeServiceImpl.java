@@ -106,7 +106,7 @@ public class TraineeServiceImpl implements TraineeService {
     }
 
     @Override
-    public List<Trainee> getAllTrainee() {
+    public List<Trainee> getAllTrainees() {
         log.debug("Fetching all trainee profiles");
         return traineeDao.findAll();
     }

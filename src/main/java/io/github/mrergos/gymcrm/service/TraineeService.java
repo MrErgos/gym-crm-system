@@ -15,5 +15,5 @@ public interface TraineeService {
 
     Optional<Trainee> getTraineeProfile(Long id);
 
-    List<Trainee> getAllTrainee();
+    List<Trainee> getAllTrainees();
 }

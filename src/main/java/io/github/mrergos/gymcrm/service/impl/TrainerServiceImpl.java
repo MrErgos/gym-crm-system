@@ -93,7 +93,7 @@ public class TrainerServiceImpl implements TrainerService {
     }
 
     @Override
-    public List<Trainer> getAllTrainer() {
+    public List<Trainer> getAllTrainers() {
         log.debug("Fetching all trainer profiles");
         return trainerDao.findAll();
     }

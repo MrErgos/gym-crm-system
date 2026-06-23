@@ -13,5 +13,5 @@ public interface TrainerService {
 
     Optional<Trainer> getTrainerProfile(Long id);
 
-    List<Trainer> getAllTrainer();
+    List<Trainer> getAllTrainers();
 }
