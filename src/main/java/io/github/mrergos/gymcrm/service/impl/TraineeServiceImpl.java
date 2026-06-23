@@ -80,9 +80,9 @@ public class TraineeServiceImpl implements TraineeService {
         Assert.hasText(trainee.getFirstName(), "First name must not be blank");
         Assert.hasText(trainee.getLastName(), "Last name must not be blank");
         Assert.hasText(trainee.getUsername(), "Username must not be blank");
-        Assert.state(traineeDao.existsByUsername(trainee.getUsername()), "Username already exists");
+        Assert.isTrue(!usernameGenerator.checkUsernameExists(trainee.getUsername()), "Username already exists");
         Assert.hasText(trainee.getPassword(), "Password must not be blank");
-        Assert.state(trainee.getPassword().length() >= 10, "Password must be at least 10 characters");
+        Assert.isTrue(trainee.getPassword().length() >= 10, "Password must be at least 10 characters");
     }
 
     @Override

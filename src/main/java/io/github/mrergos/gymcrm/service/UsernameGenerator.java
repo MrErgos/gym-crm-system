@@ -28,9 +28,13 @@ public class UsernameGenerator {
     public String generate(String firstName, String lastName) {
         String username = UserUtils.generateUniqueUsername(firstName,
                 lastName,
-                usernameCandidate -> traineeDao.existsByUsername(usernameCandidate) || trainerDao.existsByUsername(usernameCandidate));
+                this::checkUsernameExists);
 
         log.debug("Generated username '{}' for {} {}", username, firstName, lastName);
         return username;
+    }
+
+    public boolean checkUsernameExists(String username) {
+        return traineeDao.existsByUsername(username) || trainerDao.existsByUsername(username);
     }
 }

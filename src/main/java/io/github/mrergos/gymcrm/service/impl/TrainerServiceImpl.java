@@ -80,9 +80,9 @@ public class TrainerServiceImpl implements TrainerService {
         Assert.hasText(trainer.getFirstName(), "First name must not be blank");
         Assert.hasText(trainer.getLastName(), "Last name must not be blank");
         Assert.hasText(trainer.getUsername(), "Username must not be blank");
-        Assert.state(trainerDao.existsByUsername(trainer.getUsername()), "Username already exists");
+        Assert.isTrue(!usernameGenerator.checkUsernameExists(trainer.getUsername()), "Username already exists");
         Assert.hasText(trainer.getPassword(), "Password must not be blank");
-        Assert.state(trainer.getPassword().length() >= 10, "Password must be at least 10 characters");
+        Assert.isTrue(trainer.getPassword().length() >= 10, "Password must be at least 10 characters");
         Assert.notNull(trainer.getSpecialization(), "Specialization must not be null");
     }
 
