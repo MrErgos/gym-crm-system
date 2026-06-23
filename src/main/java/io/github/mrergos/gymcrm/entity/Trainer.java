@@ -4,7 +4,7 @@ import lombok.*;
 
 @Getter
 @Setter
-@ToString
+@ToString(callSuper = true)
 @EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 public class Trainer extends User {

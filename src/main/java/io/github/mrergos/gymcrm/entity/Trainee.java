@@ -6,7 +6,7 @@ import java.time.LocalDate;
 
 @Getter
 @Setter
-@ToString
+@ToString(callSuper = true)
 @EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 public class Trainee extends User {
