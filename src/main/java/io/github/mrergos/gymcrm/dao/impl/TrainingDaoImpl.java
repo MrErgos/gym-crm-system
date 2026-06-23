@@ -25,14 +25,12 @@ public class TrainingDaoImpl implements TrainingDao {
     @Override
     public Training save(Training training) {
         Training toSave = new Training(training);
-        if (toSave.getId() == null) {
-            toSave.setId(generateId());
-            log.info("Creating new training: '{}' for traineeId={}, trainerId={}",
-                    toSave.getTrainingName(),
-                    toSave.getTraineeId(), toSave.getTrainerId());
-        } else {
-            log.info("Updating training with id: {}", toSave.getId());
-        }
+
+        toSave.setId(generateId());
+        log.info("Creating new training: '{}' for traineeId={}, trainerId={}",
+                toSave.getTrainingName(),
+                toSave.getTraineeId(), toSave.getTrainerId());
+
         storage.put(toSave.getId(), toSave);
         log.debug("Training saved: id={}, name={}", toSave.getId(), toSave.getTrainingName());
         return new Training(toSave);

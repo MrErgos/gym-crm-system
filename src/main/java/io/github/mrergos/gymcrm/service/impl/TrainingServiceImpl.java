@@ -43,6 +43,7 @@ public class TrainingServiceImpl implements TrainingService {
     @Override
     public Training createTraining(Training training) {
         Assert.notNull(training, "Training must not be null");
+        Assert.isNull(training.getId(), "Training ID must be null");
         Assert.notNull(training.getTraineeId(), "Trainee id must not be null");
         Assert.notNull(training.getTrainerId(), "Trainer id must not be null");
         Assert.hasText(training.getTrainingName(), "Training name must not be blank");
