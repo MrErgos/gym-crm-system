@@ -87,7 +87,6 @@ class TraineeServiceImplTest {
     void updateTraineeProfile_valid_shouldSaveAndReturn() {
         //given
         Trainee trainee = buildTrainee(1L, "John", "Doe");
-        when(usernameGenerator.checkUsernameExists("John.Doe")).thenReturn(false);
         when(traineeDao.findById(1L)).thenReturn(Optional.of(trainee));
         when(traineeDao.save(any())).thenReturn(trainee);
 
@@ -139,18 +138,43 @@ class TraineeServiceImplTest {
     }
 
     @Test
+    @DisplayName("updateTraineeProfile: new username is not exists")
+    void updateTraineeProfile_newUsernameIsNotExists_shouldThrow() {
+        //given
+        Trainee trainee = buildTrainee(1L, "John", "Doe");
+        trainee.setUsername("John.Doe");
+        when(traineeDao.findById(1L)).thenReturn(Optional.of(trainee));
+
+        Trainee updatedTrainee = buildTrainee(1L, "John", "Doe");
+        updatedTrainee.setUsername("CoolJohn");
+
+        when(traineeDao.save(any())).thenReturn(updatedTrainee);
+
+        //when
+        Trainee result = service.updateTraineeProfile(updatedTrainee);
+
+        //then
+        assertEquals("CoolJohn", result.getUsername());
+        verify(traineeDao).save(updatedTrainee);
+    }
+
+    @Test
     @DisplayName("updateTraineeProfile: throws when username is already exists")
     void updateTraineeProfile_usernameExists_shouldThrow() {
         //given
         Trainee trainee = buildTrainee(1L, "John", "Doe");
-        trainee.setUsername("CoolJohn");
+        trainee.setUsername("John.Doe");
         when(traineeDao.findById(1L)).thenReturn(Optional.of(trainee));
+
+        Trainee updatedTrainee = buildTrainee(1L, "John", "Doe");
+        updatedTrainee.setUsername("CoolJohn");
+
         when(usernameGenerator.checkUsernameExists("CoolJohn")).thenReturn(true);
 
         //when
         //then
         assertThrows(IllegalArgumentException.class,
-                () -> service.updateTraineeProfile(trainee));
+                () -> service.updateTraineeProfile(updatedTrainee));
     }
 
     @Test

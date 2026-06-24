@@ -1,6 +1,7 @@
 package io.github.mrergos.gymcrm.service.impl;
 
 import io.github.mrergos.gymcrm.dao.TrainerDao;
+import io.github.mrergos.gymcrm.entity.Trainee;
 import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.entity.TrainingType;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
@@ -150,18 +151,43 @@ class TrainerServiceImplTest {
     }
 
     @Test
+    @DisplayName("updateTrainerProfile: new username is not exists")
+    void updateTrainerProfile_newUsernameIsNotExists_shouldThrow() {
+        //given
+        Trainer trainer = buildTrainer(1L, "Jane", "Smith");
+        trainer.setUsername("Jane.Smith");
+        when(trainerDao.findById(1L)).thenReturn(Optional.of(trainer));
+
+        Trainer updatedTrainer = buildTrainer(1L, "Jane", "Smith");
+        updatedTrainer.setUsername("CoolJane");
+
+        when(trainerDao.save(any())).thenReturn(updatedTrainer);
+
+        //when
+        Trainer result = service.updateTrainerProfile(updatedTrainer);
+
+        //then
+        assertEquals("CoolJane", result.getUsername());
+        verify(trainerDao).save(updatedTrainer);
+    }
+
+    @Test
     @DisplayName("updateTrainerProfile: throws when username is already exists")
     void updateTrainerProfile_usernameExists_shouldThrow() {
         //given
         Trainer trainer = buildTrainer(1L, "Jane", "Smith");
-        trainer.setUsername("CoolJane");
+        trainer.setUsername("Jane.Smith");
         when(trainerDao.findById(1L)).thenReturn(Optional.of(trainer));
+
+        Trainer updatedTrainer = buildTrainer(1L, "Jane", "Smith");
+        updatedTrainer.setUsername("CoolJane");
+
         when(usernameGenerator.checkUsernameExists("CoolJane")).thenReturn(true);
 
         //when
         //then
         assertThrows(IllegalArgumentException.class,
-                () -> service.updateTrainerProfile(trainer));
+                () -> service.updateTrainerProfile(updatedTrainer));
     }
 
     @Test
