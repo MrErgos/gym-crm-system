@@ -61,8 +61,6 @@ public class UserUtilsTest {
         }
     }
 
-    // ── generatePassword ──────────────────────────────────────────────────
-
     @Test
     @DisplayName("generatePassword: length is exactly 10")
     void generatePassword_shouldHaveLengthTen() {
