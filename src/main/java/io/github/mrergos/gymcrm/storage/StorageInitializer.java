@@ -74,22 +74,39 @@ public class StorageInitializer {
 
         Resource resource = resourceLoader.getResource(filePath);
 
-        if (!resource.exists()) {
-            log.warn("Storage file not found: {}. Storage will be empty.", filePath);
+        if (!isValidStorageFile(resource)) {
             return;
         }
 
-        try (InputStream is = resource.getInputStream()) {
+        readStorageFromFile(resource);
+    }
+
+    private boolean isValidStorageFile(Resource resource) {
+        if (!resource.exists()) {
+            log.warn("Storage file not found: {}. Storage will be empty.", filePath);
+            return false;
+        }
+
+        try {
             if (!resource.isFile()) {
                 log.warn("Filepath is pointing to directory: {}. Storage will be empty.", filePath);
-                return;
+                return false;
             }
 
             if (resource.contentLength() == 0) {
                 log.warn("Storage is empty: {}. Storage will be empty.", filePath);
-                return;
+                return false;
             }
+        } catch (IOException e) {
+            log.error("Failed to check storage file: {}", filePath, e);
+            return false;
+        }
 
+        return true;
+    }
+
+    private void readStorageFromFile(Resource resource) {
+        try (InputStream is = resource.getInputStream()) {
             StorageDTO data = objectMapper.readValue(is, StorageDTO.class);
             populateStorage(data);
         } catch (IOException e) {
@@ -110,6 +127,10 @@ public class StorageInitializer {
         data.setTrainers(new ArrayList<>(trainerStorage.values()));
         data.setTrainings(new ArrayList<>(trainingStorage.values()));
 
+        writeStorageToFile(data);
+    }
+
+    private void writeStorageToFile(StorageDTO data) {
         Resource resource = resourceLoader.getResource(filePath);
 
         try {
@@ -142,7 +163,7 @@ public class StorageInitializer {
         data.getTrainers().forEach(trainer -> trainerStorage.put(trainer.getUserId(), trainer));
         data.getTrainings().forEach(training -> trainingStorage.put(training.getId(), training));
 
-        log.info("Storage populated. Training: {}, trainees: {}, trainers: {}",
-                trainingStorage.size(), traineeStorage.size(), trainerStorage.size());
+        log.info("Storage populated. Trainee: {}, trainers: {}, trainings: {}",
+                traineeStorage.size(), trainerStorage.size(), trainingStorage.size());
     }
 }

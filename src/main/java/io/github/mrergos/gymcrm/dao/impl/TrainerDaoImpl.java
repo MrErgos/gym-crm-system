@@ -24,16 +24,16 @@ public class TrainerDaoImpl implements TrainerDao {
 
     @Override
     public Trainer save(Trainer trainer) {
-        Trainer toSave = new Trainer(trainer);
-        if (toSave.getUserId() == null) {
-            toSave.setUserId(generateId());
-            log.info("Creating new trainer with username: {}", toSave.getUsername());
+        Trainer trainerDbCopy = new Trainer(trainer);
+        if (trainerDbCopy.getUserId() == null) {
+            trainerDbCopy.setUserId(generateId());
+            log.info("Creating new trainer with username: {}", trainerDbCopy.getUsername());
         } else {
-            log.info("Updating trainer with id: {}", toSave.getUserId());
+            log.info("Updating trainer with id: {}", trainerDbCopy.getUserId());
         }
-        storage.put(toSave.getUserId(), toSave);
-        log.debug("Trainer saved: id={}, username={}", toSave.getUserId(), toSave.getUsername());
-        return new Trainer(toSave);
+        storage.put(trainerDbCopy.getUserId(), trainerDbCopy);
+        log.debug("Trainer saved: id={}, username={}", trainerDbCopy.getUserId(), trainerDbCopy.getUsername());
+        return new Trainer(trainerDbCopy);
     }
 
     @Override

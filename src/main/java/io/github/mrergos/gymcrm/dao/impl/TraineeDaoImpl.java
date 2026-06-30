@@ -24,18 +24,18 @@ public class TraineeDaoImpl implements TraineeDao {
 
     @Override
     public Trainee save(Trainee trainee) {
-        Trainee toSave = new Trainee(trainee);
+        Trainee traineeDbCopy = new Trainee(trainee);
 
-        if (toSave.getUserId() == null) {
-            toSave.setUserId(generateId());
-            log.info("Creating new trainee with username: {}", toSave.getUsername());
+        if (traineeDbCopy.getUserId() == null) {
+            traineeDbCopy.setUserId(generateId());
+            log.info("Creating new trainee with username: {}", traineeDbCopy.getUsername());
         } else {
-            log.info("Updating trainee with id: {}", toSave.getUserId());
+            log.info("Updating trainee with id: {}", traineeDbCopy.getUserId());
         }
 
-        storage.put(toSave.getUserId(), toSave);
-        log.debug("Trainee saved: id={}, username={}", toSave.getUserId(), toSave.getUsername());
-        return new Trainee(toSave);
+        storage.put(traineeDbCopy.getUserId(), traineeDbCopy);
+        log.debug("Trainee saved: id={}, username={}", traineeDbCopy.getUserId(), traineeDbCopy.getUsername());
+        return new Trainee(traineeDbCopy);
     }
 
     @Override

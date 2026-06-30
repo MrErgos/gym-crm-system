@@ -114,7 +114,6 @@ class StorageInitializerTest {
         setFilePath("classpath:someDir");
         when(resourceLoader.getResource("classpath:someDir")).thenReturn(resource);
         when(resource.exists()).thenReturn(true);
-        when(resource.getInputStream()).thenReturn(new ByteArrayInputStream(new byte[0]));
         when(resource.isFile()).thenReturn(false);
 
         //when
@@ -132,7 +131,6 @@ class StorageInitializerTest {
         setFilePath("classpath:data.json");
         when(resourceLoader.getResource("classpath:data.json")).thenReturn(resource);
         when(resource.exists()).thenReturn(true);
-        when(resource.getInputStream()).thenReturn(new ByteArrayInputStream(new byte[0]));
         when(resource.isFile()).thenReturn(true);
         when(resource.contentLength()).thenReturn(0L);
 
@@ -151,6 +149,8 @@ class StorageInitializerTest {
         setFilePath("classpath:data.json");
         when(resourceLoader.getResource("classpath:data.json")).thenReturn(resource);
         when(resource.exists()).thenReturn(true);
+        when(resource.isFile()).thenReturn(true);
+        when(resource.contentLength()).thenReturn(100L);
         when(resource.getInputStream()).thenThrow(new IOException("boom"));
 
         //when
