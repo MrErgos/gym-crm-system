@@ -10,9 +10,11 @@ public interface TraineeDao {
 
     Optional<Trainee> findById(Long id);
 
+    Optional<Trainee> findByUsername(String username);
+
     List<Trainee> findAll();
 
-    void delete(Long id);
+    void delete(Trainee trainee);
 
     boolean existsByUsername(String username);
 }

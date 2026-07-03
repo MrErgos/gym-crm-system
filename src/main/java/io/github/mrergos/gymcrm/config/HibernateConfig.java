@@ -35,6 +35,8 @@ public class HibernateConfig {
     private String formatSql;
     @Value("${hibernate.dialect}")
     private String dialect;
+    @Value("${hibernate.current_session_context_class}")
+    private String sessionContextClass;
 
     @Bean
     public DataSource dataSource() {
@@ -55,6 +57,7 @@ public class HibernateConfig {
         configuration.setProperty("hibernate.show_sql", showSql);
         configuration.setProperty("hibernate.format_sql", formatSql);
         configuration.setProperty("hibernate.dialect", dialect);
+        configuration.setProperty("hibernate.current_session_context_class", sessionContextClass);
 
         configuration.addAnnotatedClass(User.class);
         configuration.addAnnotatedClass(Trainee.class);
