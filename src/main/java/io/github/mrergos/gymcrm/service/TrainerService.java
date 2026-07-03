@@ -11,7 +11,13 @@ public interface TrainerService {
 
     Trainer updateTrainerProfile(Trainer trainer);
 
-    Optional<Trainer> getTrainerProfile(Long id);
+    void changePassword(String username, String newPassword);
+
+    void toggleActive(String username);
+
+    Optional<Trainer> getTrainerProfile(String username);
 
     List<Trainer> getAllTrainers();
+
+    List<TrainingType> getAvailableTrainingTypes();
 }

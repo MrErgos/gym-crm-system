@@ -1,6 +1,7 @@
 package io.github.mrergos.gymcrm.service.impl;
 
 import io.github.mrergos.gymcrm.dao.TrainerDao;
+import io.github.mrergos.gymcrm.dao.TrainingTypeDao;
 import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.entity.TrainingType;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
@@ -11,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
 import java.util.List;
@@ -21,11 +23,17 @@ public class TrainerServiceImpl implements TrainerService {
     private static final Logger log = LoggerFactory.getLogger(TrainerServiceImpl.class);
 
     private TrainerDao trainerDao;
+    private TrainingTypeDao trainingTypeDao;
     private UsernameGenerator usernameGenerator;
 
     @Autowired
     public void setTrainerDao(TrainerDao trainerDao) {
         this.trainerDao = trainerDao;
+    }
+
+    @Autowired
+    public void setTrainingTypeDao(TrainingTypeDao trainingTypeDao) {
+        this.trainingTypeDao = trainingTypeDao;
     }
 
     @Autowired
@@ -35,6 +43,7 @@ public class TrainerServiceImpl implements TrainerService {
 
 
     @Override
+    @Transactional
     public Trainer createTrainerProfile(String firstName, String lastName, TrainingType specialization) {
         Assert.hasText(firstName, "First name must not be blank");
         Assert.hasText(lastName, "Last name must not be blank");
@@ -55,32 +64,33 @@ public class TrainerServiceImpl implements TrainerService {
         trainer.setSpecialization(specialization);
 
         Trainer saved = trainerDao.save(trainer);
-        log.info("Trainer profile created: id={}, username={}", saved.getUserId(), saved.getUsername());
+        log.info("Trainer profile created: id={}, username={}", saved.getId(), saved.getUsername());
         return saved;
 
     }
 
     @Override
+    @Transactional
     public Trainer updateTrainerProfile(Trainer trainer) {
-        Assert.notNull(trainer.getUserId(), "Trainer id must not be null for update");
+        Assert.notNull(trainer.getId(), "Trainer id must not be null for update");
 
-        trainerDao.findById(trainer.getUserId())
+        Trainer existing = trainerDao.findById(trainer.getId())
                 .orElseThrow(() -> {
-                    log.warn("Attempt to update non-existing trainer, id={}", trainer.getUserId());
-                    return new EntityNotFoundException("Trainer not found with id: " + trainer.getUserId());
+                    log.warn("Attempt to update non-existing trainer, id={}", trainer.getId());
+                    return new EntityNotFoundException("Trainer not found with id: " + trainer.getId());
                 });
 
-        validateRequiredFields(trainer);
+        validateRequiredFields(trainer, existing);
 
-        log.info("Updating trainer profile, id={}", trainer.getUserId());
+        log.info("Updating trainer profile, id={}", trainer.getId());
         return trainerDao.save(trainer);
     }
 
-    private void validateRequiredFields(Trainer trainer) {
+    private void validateRequiredFields(Trainer trainer, Trainer existing) {
         Assert.hasText(trainer.getFirstName(), "First name must not be blank");
         Assert.hasText(trainer.getLastName(), "Last name must not be blank");
         Assert.hasText(trainer.getUsername(), "Username must not be blank");
-        if (!trainerDao.findById(trainer.getUserId()).get().getUsername().equals(trainer.getUsername())) {
+        if (!existing.getUsername().equals(trainer.getUsername())) {
             Assert.isTrue(!usernameGenerator.checkUsernameExists(trainer.getUsername()), "Username already exists");
         }
         Assert.hasText(trainer.getPassword(), "Password must not be blank");
@@ -89,14 +99,56 @@ public class TrainerServiceImpl implements TrainerService {
     }
 
     @Override
-    public Optional<Trainer> getTrainerProfile(Long id) {
-        log.debug("Fetching trainer profile, id={}", id);
-        return trainerDao.findById(id);
+    @Transactional
+    public void changePassword(String username, String newPassword) {
+        Assert.hasText(newPassword, "Password must not be blank");
+        Assert.isTrue(newPassword.length() >= 10, "Password must be at least 10 characters");
+
+        Trainer trainer = trainerDao.findByUsername(username)
+                .orElseThrow(() -> {
+                    log.warn("Attempt to change password for non-existing trainer, username={}", username);
+                    return new EntityNotFoundException("Trainer not found with username: " + username);
+                });
+
+        trainer.setPassword(newPassword);
+        trainerDao.save(trainer);
+        log.info("Password changed for trainer, username={}", username);
     }
 
     @Override
+    @Transactional
+    public void toggleActive(String username) {
+        Trainer trainer = trainerDao.findByUsername(username)
+                .orElseThrow(() -> {
+                    log.warn("Attempt to toggle active status for non-existing trainer, username={}", username);
+                    return new EntityNotFoundException("Trainer not found with username: " + username);
+                });
+
+        boolean newStatus = !trainer.isActive();
+        trainer.setActive(newStatus);
+        trainerDao.save(trainer);
+        log.info("Trainer active status toggled to {}, username={}", newStatus, username);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Trainer> getTrainerProfile(String username) {
+        log.debug("Fetching trainer profile, username={}", username);
+        return trainerDao.findByUsername(username);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Trainer> getAllTrainers() {
         log.debug("Fetching all trainer profiles");
         return trainerDao.findAll();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TrainingType> getAvailableTrainingTypes() {
+        log.debug("Fetching available training types");
+        return trainingTypeDao.findAll();
+    }
+
 }

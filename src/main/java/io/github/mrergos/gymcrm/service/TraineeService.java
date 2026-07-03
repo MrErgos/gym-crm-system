@@ -1,6 +1,7 @@
 package io.github.mrergos.gymcrm.service;
 
 import io.github.mrergos.gymcrm.entity.Trainee;
+import io.github.mrergos.gymcrm.entity.Trainer;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -11,9 +12,17 @@ public interface TraineeService {
 
     Trainee updateTraineeProfile(Trainee trainee);
 
-    void deleteTraineeProfile(Long id);
+    void changePassword(String username, String newPassword);
 
-    Optional<Trainee> getTraineeProfile(Long id);
+    void toggleActive(String username);
+
+    void deleteTraineeProfile(String username);
+
+    Optional<Trainee> getTraineeProfile(String username);
 
     List<Trainee> getAllTrainees();
+
+    List<Trainer> getTrainersNotAssigned(String traineeUsername);
+
+    List<Trainer> updateTraineeTrainers(String traineeUsername, List<String> trainerUsernames);
 }
