@@ -2,6 +2,9 @@ package io.github.mrergos.gymcrm.dao.impl;
 
 import io.github.mrergos.gymcrm.dao.TraineeDao;
 import io.github.mrergos.gymcrm.entity.Trainee;
+import io.github.mrergos.gymcrm.entity.Trainer;
+import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
+import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.query.Query;
 import org.slf4j.Logger;
@@ -87,4 +90,32 @@ public class TraineeDaoImpl implements TraineeDao {
         return exists;
     }
 
+    @Override
+    public List<Trainer> updateTrainers(String traineeUsername, List<String> trainerUsernames) {
+        Session session = sessionFactory.getCurrentSession();
+
+        Trainee trainee = session
+                .createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username",
+                        Trainee.class)
+                .setParameter("username", traineeUsername)
+                .uniqueResultOptional()
+                .orElseThrow(() -> new EntityNotFoundException("Trainee not found with username: " + traineeUsername));
+
+        List<Trainer> trainers = session
+                .createQuery("FROM Trainer t JOIN FETCH t.specialization WHERE t.username IN :usernames",
+                        Trainer.class)
+                .setParameter("usernames", trainerUsernames)
+                .list();
+
+        if (trainers.size() != trainerUsernames.size()) {
+            log.warn("Some trainer usernames not found while updating trainee's trainers, trainee={}", traineeUsername);
+            throw new EntityNotFoundException("One or more trainers not found");
+        }
+
+        trainee.getTrainers().clear();
+        trainee.getTrainers().addAll(trainers);
+
+        log.info("Updated trainers list for trainee, username={}, count={}", traineeUsername, trainers.size());
+        return trainers;
+    }
 }
