@@ -5,11 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.*;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 @Configuration
 @ComponentScan(basePackages = "io.github.mrergos.gymcrm")
 @PropertySource("classpath:application.properties")
-@Import(StorageConfig.class)
+@Import(HibernateConfig.class)
+@EnableTransactionManagement
 public class Config {
 
     @Bean
