@@ -39,19 +39,22 @@ public class TrainerDaoImpl implements TrainerDao {
     @Override
     public Optional<Trainer> findById(Long id) {
         log.debug("Finding trainer by id: {}", id);
-        Trainer trainer = sessionFactory.getCurrentSession()
-                .find(Trainer.class, id);
-        if (trainer == null) {
+        Query<Trainer> query = sessionFactory.getCurrentSession()
+                .createQuery("FROM Trainer t JOIN FETCH t.specialization WHERE t.id = :id", Trainer.class);
+        query.setParameter("id", id);
+        Optional<Trainer> result = query.uniqueResultOptional();
+        if (result.isEmpty()) {
             log.warn("Trainer not found by id: {}", id);
         }
-        return Optional.ofNullable(trainer);
+        return result;
     }
 
     @Override
     public Optional<Trainer> findByUsername(String username) {
         log.debug("Finding trainer by username: {}", username);
         Query<Trainer> query = sessionFactory.getCurrentSession()
-                .createQuery("FROM Trainer t WHERE t.username = :username", Trainer.class);
+                .createQuery("FROM Trainer t JOIN FETCH t.specialization WHERE t.username = :username",
+                        Trainer.class);
         query.setParameter("username", username);
         Optional<Trainer> result = query.uniqueResultOptional();
         if (result.isEmpty()) {
@@ -63,7 +66,7 @@ public class TrainerDaoImpl implements TrainerDao {
     @Override
     public List<Trainer> findAll() {
         List<Trainer> result = sessionFactory.getCurrentSession()
-                        .createQuery("FROM Trainer", Trainer.class)
+                        .createQuery("FROM Trainer t JOIN FETCH t.specialization", Trainer.class)
                                 .list();
         log.debug("Fetching all trainers, total: {}", result.size());
         return result;
@@ -73,12 +76,12 @@ public class TrainerDaoImpl implements TrainerDao {
     public List<Trainer> findAllNotAssignedToTrainee(String traineeUsername) {
         log.debug("Finding trainers not assigned to trainee: {}", traineeUsername);
         String queryString = """
-                FROM Trainer tr
-                WHERE tr.id NOT IN (
-                SELECT t.trainer.id FROM Training t
-                WHERE t.trainee.username = :traineeUsername
-                )
-                """;
+            FROM Trainer tr JOIN FETCH tr.specialization
+            WHERE tr NOT IN (
+                SELECT tt FROM Trainee t JOIN t.trainers tt
+                WHERE t.username = :traineeUsername
+            )
+            """;
         List<Trainer> result = sessionFactory.getCurrentSession()
                 .createQuery(queryString, Trainer.class)
                 .setParameter("traineeUsername", traineeUsername)

@@ -43,18 +43,22 @@ public class TraineeDaoImpl implements TraineeDao {
     @Override
     public Optional<Trainee> findById(Long id) {
         log.debug("Finding trainee by id: {}", id);
-        Trainee result = sessionFactory.getCurrentSession().find(Trainee.class, id);
-        if (result == null) {
+        Query<Trainee> query = sessionFactory.getCurrentSession()
+                .createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.id = :id",
+                        Trainee.class);
+        query.setParameter("id", id);
+        Optional<Trainee> result = query.uniqueResultOptional();
+        if (result.isEmpty()) {
             log.warn("Trainee not found by id: {}", id);
         }
-        return Optional.ofNullable(result);
+        return result;
     }
 
     @Override
     public Optional<Trainee> findByUsername(String username) {
         log.debug("Finding trainee by username: {}", username);
         Query<Trainee> query = sessionFactory.getCurrentSession()
-                .createQuery("FROM Trainee t WHERE t.username = :username", Trainee.class);
+                .createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username", Trainee.class);
         query.setParameter("username", username);
         Optional<Trainee> result = query.uniqueResultOptional();
         if (result.isEmpty()) {

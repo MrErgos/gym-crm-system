@@ -18,6 +18,9 @@ import java.util.Optional;
 @Repository
 public class TrainingDaoImpl implements TrainingDao {
     private static final Logger log = LoggerFactory.getLogger(TrainingDaoImpl.class);
+    private static final String FETCH_GRAPH =
+        " JOIN FETCH t.trainee tn JOIN FETCH t.trainer tr JOIN FETCH t.trainingType tt JOIN FETCH tr.specialization";
+
 
     private SessionFactory sessionFactory;
 
@@ -41,18 +44,20 @@ public class TrainingDaoImpl implements TrainingDao {
 
     @Override
     public Optional<Training> findById(Long id) {
-        Training result = sessionFactory.getCurrentSession()
-                .find(Training.class, id);
-        if (result == null) {
+        Query<Training> query = sessionFactory.getCurrentSession()
+                .createQuery("FROM Training t" + FETCH_GRAPH + " WHERE t.id = :id", Training.class);
+        query.setParameter("id", id);
+        Optional<Training> result = query.uniqueResultOptional();
+        if (result.isEmpty()) {
             log.warn("Training not found by id: {}", id);
         }
-        return Optional.ofNullable(result);
+        return result;
     }
 
     @Override
     public List<Training> findAll() {
         List<Training> result = sessionFactory.getCurrentSession()
-                        .createQuery("FROM Training", Training.class)
+                        .createQuery("FROM Training t" + FETCH_GRAPH, Training.class)
                 .list();
         log.debug("Fetching all trainings, total: {}", result.size());
         return result;
@@ -64,7 +69,7 @@ public class TrainingDaoImpl implements TrainingDao {
                                                String trainerName, String trainingTypeName) {
         log.debug("Finding trainee training by criteria");
         StringBuilder queryString = new StringBuilder(
-                "FROM Training t WHERE t.trainee.username = :traineeUsername"
+                "FROM Training t" + FETCH_GRAPH + " WHERE t.trainee.username = :traineeUsername"
         );
         Map<String, Object> params = new HashMap<>();
         params.put("traineeUsername", traineeUsername);
@@ -99,8 +104,9 @@ public class TrainingDaoImpl implements TrainingDao {
     public List<Training> findTrainerTrainings(String trainerUsername,
                                                LocalDate fromDate, LocalDate toDate,
                                                String traineeName) {
+        log.debug("Finding trainer training by criteria");
         StringBuilder queryString = new StringBuilder(
-                "FROM Training t WHERE t.trainer.username = :trainerUsername");
+                "FROM Training t" + FETCH_GRAPH + " WHERE t.trainer.username = :trainerUsername");
         Map<String, Object> params = new HashMap<>();
         params.put("trainerUsername", trainerUsername);
 
