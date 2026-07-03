@@ -5,7 +5,9 @@ import lombok.*;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "trainees")
@@ -26,6 +28,16 @@ public class Trainee extends User {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Training> trainings = new ArrayList<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "trainee_trainer",
+            joinColumns = @JoinColumn(name = "trainee_id"),
+            inverseJoinColumns = @JoinColumn(name = "trainer_id")
+    )
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Set<Trainer> trainers = new HashSet<>();
 
     public Trainee(String firstName, String lastName, String username, String password,
                    boolean isActive,

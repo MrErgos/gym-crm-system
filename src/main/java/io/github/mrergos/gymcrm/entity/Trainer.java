@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "trainers")
@@ -24,6 +26,11 @@ public class Trainer extends User {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<Training> trainings = new ArrayList<>();
+
+    @ManyToMany(mappedBy = "trainers", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Set<Trainee> trainees = new HashSet<>();
 
 
     public Trainer(String firstName, String lastName, String username, String password,
