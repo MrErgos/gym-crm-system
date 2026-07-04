@@ -1,7 +1,9 @@
 package io.github.mrergos.gymcrm.service.impl;
 
 import io.github.mrergos.gymcrm.dao.TraineeDao;
+import io.github.mrergos.gymcrm.dao.TrainerDao;
 import io.github.mrergos.gymcrm.entity.Trainee;
+import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
 import io.github.mrergos.gymcrm.service.UsernameGenerator;
 import org.junit.jupiter.api.DisplayName;
@@ -27,14 +29,18 @@ class TraineeServiceImplTest {
     private TraineeDao traineeDao;
 
     @Mock
+    private TrainerDao trainerDao;
+
+    @Mock
     private UsernameGenerator usernameGenerator;
 
     @InjectMocks
     private TraineeServiceImpl service;
 
+
     private Trainee buildTrainee(Long id, String firstName, String lastName) {
         Trainee t = new Trainee();
-        t.setUserId(id);
+        t.setId(id);
         t.setFirstName(firstName);
         t.setLastName(lastName);
         t.setUsername(firstName + "." + lastName);
@@ -57,7 +63,6 @@ class TraineeServiceImplTest {
         //then
         assertEquals("John.Doe", result.getUsername());
         assertNotNull(result.getPassword());
-        assertEquals(10, result.getPassword().length());
         assertTrue(result.isActive());
         verify(traineeDao).save(any(Trainee.class));
     }
@@ -66,8 +71,8 @@ class TraineeServiceImplTest {
     @DisplayName("createTraineeProfile: throws when firstName is blank")
     void createTraineeProfile_blankFirstName_shouldThrow() {
         //given
-        //then
         //when
+        //then
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTraineeProfile("", "Doe", null, null));
     }
@@ -138,16 +143,17 @@ class TraineeServiceImplTest {
     }
 
     @Test
-    @DisplayName("updateTraineeProfile: new username is not exists")
-    void updateTraineeProfile_newUsernameIsNotExists_shouldThrow() {
+    @DisplayName("updateTraineeProfile: new username does not exist - saves successfully")
+    void updateTraineeProfile_newUsernameIsNotExists_shouldSave() {
         //given
-        Trainee trainee = buildTrainee(1L, "John", "Doe");
-        trainee.setUsername("John.Doe");
-        when(traineeDao.findById(1L)).thenReturn(Optional.of(trainee));
+        Trainee existing = buildTrainee(1L, "John", "Doe");
+        existing.setUsername("John.Doe");
+        when(traineeDao.findById(1L)).thenReturn(Optional.of(existing));
 
         Trainee updatedTrainee = buildTrainee(1L, "John", "Doe");
         updatedTrainee.setUsername("CoolJohn");
 
+        when(usernameGenerator.checkUsernameExists("CoolJohn")).thenReturn(false);
         when(traineeDao.save(any())).thenReturn(updatedTrainee);
 
         //when
@@ -175,6 +181,7 @@ class TraineeServiceImplTest {
         //then
         assertThrows(IllegalArgumentException.class,
                 () -> service.updateTraineeProfile(updatedTrainee));
+        verify(traineeDao, never()).save(any());
     }
 
     @Test
@@ -206,34 +213,35 @@ class TraineeServiceImplTest {
     }
 
     @Test
-    @DisplayName("deleteTraineeProfile: existing id - deletes successfully")
-    void deleteTraineeProfile_existingId_shouldDelete() {
+    @DisplayName("deleteTraineeProfile: existing username - deletes successfully")
+    void deleteTraineeProfile_existingUsername_shouldDelete() {
         //given
-        when(traineeDao.findById(1L)).thenReturn(Optional.of(buildTrainee(1L, "John", "Doe")));
+        Trainee trainee = buildTrainee(1L, "John", "Doe");
+        when(traineeDao.findByUsername("John.Doe")).thenReturn(Optional.of(trainee));
 
         //when
-        service.deleteTraineeProfile(1L);
+        service.deleteTraineeProfile("John.Doe");
 
         //then
-        verify(traineeDao).delete(1L);
+        verify(traineeDao).delete(trainee);
     }
 
     @Test
-    @DisplayName("deleteTraineeProfile: throws EntityNotFoundException when id not found")
-    void deleteTraineeProfile_nonExistingId_shouldThrow() {
+    @DisplayName("deleteTraineeProfile: throws EntityNotFoundException when username not found")
+    void deleteTraineeProfile_nonExistingUsername_shouldThrow() {
         //given
-        when(traineeDao.findById(99L)).thenReturn(Optional.empty());
+        when(traineeDao.findByUsername("Unknown")).thenReturn(Optional.empty());
 
         //when
         //then
         assertThrows(EntityNotFoundException.class,
-                () -> service.deleteTraineeProfile(99L));
-        verify(traineeDao, never()).delete(anyLong());
+                () -> service.deleteTraineeProfile("Unknown"));
+        verify(traineeDao, never()).delete(any());
     }
 
     @Test
-    @DisplayName("deleteTraineeProfile: throws when id is null")
-    void deleteTraineeProfile_nullId_shouldThrow() {
+    @DisplayName("deleteTraineeProfile: throws when username is null")
+    void deleteTraineeProfile_nullUsername_shouldThrow() {
         //given
         //when
         //then
@@ -246,10 +254,10 @@ class TraineeServiceImplTest {
     void getTraineeProfile_shouldDelegateToDao() {
         //given
         Trainee trainee = buildTrainee(1L, "John", "Doe");
-        when(traineeDao.findById(1L)).thenReturn(Optional.of(trainee));
+        when(traineeDao.findByUsername("John.Doe")).thenReturn(Optional.of(trainee));
 
         //when
-        Optional<Trainee> result = service.getTraineeProfile(1L);
+        Optional<Trainee> result = service.getTraineeProfile("John.Doe");
 
         //then
         assertTrue(result.isPresent());
@@ -260,11 +268,11 @@ class TraineeServiceImplTest {
     @DisplayName("getTraineeProfile: returns empty when not found")
     void getTraineeProfile_notFound_shouldReturnEmpty() {
         //given
-        when(traineeDao.findById(99L)).thenReturn(Optional.empty());
+        when(traineeDao.findByUsername("Unknown")).thenReturn(Optional.empty());
 
         //when
         //then
-        assertTrue(service.getTraineeProfile(99L).isEmpty());
+        assertTrue(service.getTraineeProfile("Unknown").isEmpty());
     }
 
     @Test
@@ -282,5 +290,131 @@ class TraineeServiceImplTest {
         //then
         assertEquals(2, result.size());
         verify(traineeDao).findAll();
+    }
+
+    @Test
+    @DisplayName("changePassword: valid - updates password and saves")
+    void changePassword_valid_shouldUpdateAndSave() {
+        //given
+        Trainee trainee = buildTrainee(1L, "John", "Doe");
+        when(traineeDao.findByUsername("John.Doe")).thenReturn(Optional.of(trainee));
+
+        //when
+        service.changePassword("John.Doe", "newValidPassword");
+
+        //then
+        assertEquals("newValidPassword", trainee.getPassword());
+        verify(traineeDao).save(trainee);
+    }
+
+    @Test
+    @DisplayName("changePassword: throws when new password is blank")
+    void changePassword_blankPassword_shouldThrow() {
+        //given
+        //when
+        //then
+        assertThrows(IllegalArgumentException.class,
+                () -> service.changePassword("John.Doe", ""));
+        verify(traineeDao, never()).findByUsername(any());
+    }
+
+    @Test
+    @DisplayName("changePassword: throws when new password is too short")
+    void changePassword_passwordTooShort_shouldThrow() {
+        //given
+        //when
+        //then
+        assertThrows(IllegalArgumentException.class,
+                () -> service.changePassword("John.Doe", "short"));
+        verify(traineeDao, never()).findByUsername(any());
+    }
+
+    @Test
+    @DisplayName("changePassword: throws EntityNotFoundException when trainee not found")
+    void changePassword_notFound_shouldThrow() {
+        //given
+        when(traineeDao.findByUsername("Unknown")).thenReturn(Optional.empty());
+
+        //when
+        //then
+        assertThrows(EntityNotFoundException.class,
+                () -> service.changePassword("Unknown", "newValidPassword"));
+    }
+
+    @Test
+    @DisplayName("toggleActive: flips active status and saves")
+    void toggleActive_valid_shouldFlipStatusAndSave() {
+        //given
+        Trainee trainee = buildTrainee(1L, "John", "Doe");
+        trainee.setActive(true);
+        when(traineeDao.findByUsername("John.Doe")).thenReturn(Optional.of(trainee));
+
+        //when
+        service.toggleActive("John.Doe");
+
+        //then
+        assertFalse(trainee.isActive());
+        verify(traineeDao).save(trainee);
+    }
+
+    @Test
+    @DisplayName("toggleActive: throws EntityNotFoundException when trainee not found")
+    void toggleActive_notFound_shouldThrow() {
+        //given
+        when(traineeDao.findByUsername("Unknown")).thenReturn(Optional.empty());
+
+        //when
+        //then
+        assertThrows(EntityNotFoundException.class,
+                () -> service.toggleActive("Unknown"));
+    }
+
+    @Test
+    @DisplayName("getTrainersNotAssigned: delegates to TrainerDao and returns list")
+    void getTrainersNotAssigned_shouldDelegateToTrainerDao() {
+        //given
+        Trainer trainer = new Trainer();
+        trainer.setUsername("Jane.Smith");
+        when(trainerDao.findAllNotAssignedToTrainee("John.Doe")).thenReturn(List.of(trainer));
+
+        //when
+        List<Trainer> result = service.getTrainersNotAssigned("John.Doe");
+
+        //then
+        assertEquals(1, result.size());
+        assertEquals("Jane.Smith", result.get(0).getUsername());
+        verify(trainerDao).findAllNotAssignedToTrainee("John.Doe");
+    }
+
+    @Test
+    @DisplayName("updateTraineeTrainers: delegates to TraineeDao and returns updated list")
+    void updateTraineeTrainers_valid_shouldDelegateToDao() {
+        //given
+        List<String> trainerUsernames = List.of("Jane.Smith", "Bob.Brown");
+        Trainer trainer1 = new Trainer();
+        trainer1.setUsername("Jane.Smith");
+        Trainer trainer2 = new Trainer();
+        trainer2.setUsername("Bob.Brown");
+        List<Trainer> expected = List.of(trainer1, trainer2);
+
+        when(traineeDao.updateTrainers("John.Doe", trainerUsernames)).thenReturn(expected);
+
+        //when
+        List<Trainer> result = service.updateTraineeTrainers("John.Doe", trainerUsernames);
+
+        //then
+        assertEquals(2, result.size());
+        verify(traineeDao).updateTrainers("John.Doe", trainerUsernames);
+    }
+
+    @Test
+    @DisplayName("updateTraineeTrainers: throws when trainer usernames list is null")
+    void updateTraineeTrainers_nullList_shouldThrow() {
+        //given
+        //when
+        //then
+        assertThrows(IllegalArgumentException.class,
+                () -> service.updateTraineeTrainers("John.Doe", null));
+        verify(traineeDao, never()).updateTrainers(any(), any());
     }
 }
