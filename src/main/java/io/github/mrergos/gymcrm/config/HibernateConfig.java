@@ -7,6 +7,8 @@ import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 import org.springframework.orm.jpa.hibernate.HibernateTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 
@@ -33,8 +35,6 @@ public class HibernateConfig {
     private String showSql;
     @Value("${hibernate.format_sql}")
     private String formatSql;
-    @Value("${hibernate.dialect}")
-    private String dialect;
     @Value("${hibernate.current_session_context_class}")
     private String sessionContextClass;
 
@@ -56,7 +56,6 @@ public class HibernateConfig {
         configuration.setProperty("hibernate.hbm2ddl.auto", hbm2ddlAuto);
         configuration.setProperty("hibernate.show_sql", showSql);
         configuration.setProperty("hibernate.format_sql", formatSql);
-        configuration.setProperty("hibernate.dialect", dialect);
         configuration.setProperty("hibernate.current_session_context_class", sessionContextClass);
 
         configuration.addAnnotatedClass(User.class);
@@ -76,4 +75,11 @@ public class HibernateConfig {
         transactionManager.setSessionFactory(sessionFactory());
         return transactionManager;
     }
+
+    @Bean
+    public TrainingTypeSeeder trainingTypeSeeder() {
+        Resource dataSql = new ClassPathResource("data.sql");
+        return new TrainingTypeSeeder(dataSource(), dataSql);
+    }
+
 }
