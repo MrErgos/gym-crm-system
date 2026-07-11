@@ -67,7 +67,7 @@ class TraineeDaoImplTest {
     }
 
     @Test
-    @DisplayName("save: call persist")
+    @DisplayName("save: return same trainee when persist trainee")
     void save_newTrainee_shouldCallPersist() {
         //given
         Trainee trainee = buildTrainee(null, "John", "Doe");
@@ -76,13 +76,14 @@ class TraineeDaoImplTest {
         Trainee saved = dao.save(trainee);
 
         //then
+        assertSame(saved, trainee);
         verify(session).persist(trainee);
         verifyNoMoreInteractions(session);
     }
 
     @Test
-    @DisplayName("save: call merge")
-    void save_existingTrainee_shouldCallPersist() {
+    @DisplayName("save: return trainee when call merge")
+    void save_existingTrainee_shouldCallMerge() {
         //given
         Trainee trainee = buildTrainee(5L, "John", "Doe");
         when(session.merge(trainee)).thenReturn(trainee);
