@@ -40,7 +40,8 @@ public class TrainerDaoImpl implements TrainerDao {
     public Optional<Trainer> findById(Long id) {
         log.debug("Finding trainer by id: {}", id);
         Query<Trainer> query = sessionFactory.getCurrentSession()
-                .createQuery("FROM Trainer t JOIN FETCH t.specialization WHERE t.id = :id", Trainer.class);
+                .createQuery("FROM Trainer t JOIN FETCH t.specialization LEFT JOIN FETCH t.trainees WHERE t.id = :id",
+                        Trainer.class);
         query.setParameter("id", id);
         Optional<Trainer> result = query.uniqueResultOptional();
         if (result.isEmpty()) {
@@ -53,8 +54,8 @@ public class TrainerDaoImpl implements TrainerDao {
     public Optional<Trainer> findByUsername(String username) {
         log.debug("Finding trainer by username: {}", username);
         Query<Trainer> query = sessionFactory.getCurrentSession()
-                .createQuery("FROM Trainer t JOIN FETCH t.specialization WHERE t.username = :username",
-                        Trainer.class);
+                .createQuery("FROM Trainer t JOIN FETCH t.specialization LEFT JOIN FETCH t.trainees " +
+                        "WHERE t.username = :username", Trainer.class);
         query.setParameter("username", username);
         Optional<Trainer> result = query.uniqueResultOptional();
         if (result.isEmpty()) {

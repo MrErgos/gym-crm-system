@@ -44,7 +44,10 @@ public class TraineeDaoImpl implements TraineeDao {
     public Optional<Trainee> findById(Long id) {
         log.debug("Finding trainee by id: {}", id);
         Query<Trainee> query = sessionFactory.getCurrentSession()
-                .createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.id = :id",
+                .createQuery("FROM Trainee t " +
+                                "LEFT JOIN FETCH t.trainers tr" +
+                                " LEFT JOIN FETCH tr.specialization" +
+                                " WHERE t.id = :id",
                         Trainee.class);
         query.setParameter("id", id);
         Optional<Trainee> result = query.uniqueResultOptional();
@@ -58,7 +61,10 @@ public class TraineeDaoImpl implements TraineeDao {
     public Optional<Trainee> findByUsername(String username) {
         log.debug("Finding trainee by username: {}", username);
         Query<Trainee> query = sessionFactory.getCurrentSession()
-                .createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username", Trainee.class);
+                .createQuery("FROM Trainee t " +
+                        "LEFT JOIN FETCH t.trainers tr" +
+                        " LEFT JOIN FETCH tr.specialization" +
+                        " WHERE t.username = :username", Trainee.class);
         query.setParameter("username", username);
         Optional<Trainee> result = query.uniqueResultOptional();
         if (result.isEmpty()) {
