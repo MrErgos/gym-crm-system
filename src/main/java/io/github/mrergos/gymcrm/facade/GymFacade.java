@@ -40,22 +40,30 @@ public class GymFacade {
         authenticationService.authenticate(credentials.username(), credentials.password());
     }
 
+    public void login(Credentials credentials) {
+        log.info("Facade: login username={}", credentials.username());
+        authenticate(credentials);
+    }
+
     public List<TrainingType> getAvailableTrainingTypes() {
         log.debug("Facade: get available training types");
         return trainerService.getAvailableTrainingTypes();
     }
 
+    public Optional<TrainingType> getTrainingTypeById(Long id) {
+        log.debug("Facade: get training type by id={}", id);
+        return trainerService.getTrainingTypeById(id);
+    }
 
+    public Trainee createTraineeProfile(Trainee trainee) {
+        log.info("Facade: create trainee profile for {} {}",trainee.getFirstName(),trainee.getLastName());
 
-    public Trainee createTraineeProfile(String firstName, String lastName, LocalDate dateOfBirth, String address) {
-        log.info("Facade: create trainee profile for {} {}",firstName,lastName);
-
-        return traineeService.createTraineeProfile(firstName, lastName, dateOfBirth, address);
+        return traineeService.createTraineeProfile(trainee);
     }
 
     public Trainee updateTraineeProfile(Credentials credentials, Trainee trainee) {
         authenticate(credentials);
-        log.info("Facade: update trainee profile, id={}", trainee.getId());
+        log.info("Facade: update trainee profile, username={}", trainee.getUsername());
         return traineeService.updateTraineeProfile(trainee);
     }
 
@@ -103,6 +111,11 @@ public class GymFacade {
     }
 
 
+    public Trainer createTrainerProfile(String firstName, String lastName, Long specializationId) {
+        log.info("Facade: create trainer profile for {} {}", firstName, lastName);
+        return trainerService.createTrainerProfile(firstName, lastName, specializationId);
+    }
+
     public Trainer createTrainerProfile(String firstName, String lastName, TrainingType specialization) {
         log.info("Facade: create trainer profile for {} {}", firstName, lastName);
         return trainerService.createTrainerProfile(firstName, lastName, specialization);
@@ -110,7 +123,7 @@ public class GymFacade {
 
     public Trainer updateTrainerProfile(Credentials credentials, Trainer trainer) {
         authenticate(credentials);
-        log.info("Facade: update trainer profile, id={}", trainer.getId());
+        log.info("Facade: update trainer profile, username={}", trainer.getUsername());
         return trainerService.updateTrainerProfile(trainer);
     }
 
@@ -170,5 +183,17 @@ public class GymFacade {
         authenticate(credentials);
         log.debug("Facade: get trainer trainings, username={}", trainerUsername);
         return trainingService.getTrainerTrainings(trainerUsername, fromDate, toDate, traineeName);
+    }
+
+    public void changePassword(Credentials credentials, String newPassword) {
+        authenticate(credentials);
+
+        log.info("Facade: change password, username={}", credentials.username());
+
+        if (traineeService.existsByUsername(credentials.username())) {
+            traineeService.changePassword(credentials.username(), newPassword);
+        } else {
+            trainerService.changePassword(credentials.username(), newPassword);
+        }
     }
 }
