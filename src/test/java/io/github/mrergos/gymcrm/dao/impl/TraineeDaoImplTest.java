@@ -17,14 +17,28 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TraineeDaoImpl tests")
 class TraineeDaoImplTest {
+
+    private static final String FIND_BY_ID_HQL =
+            "FROM Trainee t LEFT JOIN FETCH t.trainers tr LEFT JOIN FETCH tr.specialization WHERE t.id = :id";
+    private static final String FIND_BY_USERNAME_HQL =
+            "FROM Trainee t LEFT JOIN FETCH t.trainers tr LEFT JOIN FETCH tr.specialization WHERE t.username = :username";
+    private static final String TRAINEE_TRAINERS_FETCH_HQL =
+            "FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username";
+    private static final String TRAINERS_BY_USERNAMES_HQL =
+            "FROM Trainer t JOIN FETCH t.specialization WHERE t.username IN :usernames";
 
     @Mock
     private SessionFactory sessionFactory;
@@ -103,7 +117,7 @@ class TraineeDaoImplTest {
         Long traineeId = 1L;
         Trainee saved = buildTrainee(traineeId, "John", "Doe");
 
-        when(session.createQuery(anyString(), eq(Trainee.class))).thenReturn(query);
+        when(session.createQuery(FIND_BY_ID_HQL, Trainee.class)).thenReturn(query);
         when(query.setParameter("id", traineeId)).thenReturn(query);
         when(query.uniqueResultOptional()).thenReturn(Optional.of(saved));
 
@@ -114,8 +128,7 @@ class TraineeDaoImplTest {
         assertTrue(result.isPresent());
         assertEquals("John", result.get().getFirstName());
 
-        verify(session).createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.id = :id",
-                Trainee.class);
+        verify(session).createQuery(FIND_BY_ID_HQL, Trainee.class);
         verify(query).setParameter("id", traineeId);
     }
 
@@ -143,9 +156,7 @@ class TraineeDaoImplTest {
         String username = "John.Doe";
         Trainee saved = buildTrainee(1L, "John", "Doe");
 
-        when(session.createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username",
-                Trainee.class))
-                .thenReturn(query);
+        when(session.createQuery(FIND_BY_USERNAME_HQL, Trainee.class)).thenReturn(query);
         when(query.setParameter("username", username)).thenReturn(query);
         when(query.uniqueResultOptional()).thenReturn(Optional.of(saved));
 
@@ -156,8 +167,7 @@ class TraineeDaoImplTest {
         assertTrue(result.isPresent());
         assertEquals("John", result.get().getFirstName());
 
-        verify(session).createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username",
-                Trainee.class);
+        verify(session).createQuery(FIND_BY_USERNAME_HQL, Trainee.class);
         verify(query).setParameter("username", username);
         verify(query).uniqueResultOptional();
         verifyNoMoreInteractions(query);
@@ -170,9 +180,7 @@ class TraineeDaoImplTest {
         //given
         String username = "John.Doe";
 
-        when(session.createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username",
-                Trainee.class))
-                .thenReturn(query);
+        when(session.createQuery(FIND_BY_USERNAME_HQL, Trainee.class)).thenReturn(query);
         when(query.setParameter("username", username)).thenReturn(query);
         when(query.uniqueResultOptional()).thenReturn(Optional.empty());
 
@@ -182,8 +190,7 @@ class TraineeDaoImplTest {
         //then
         assertTrue(result.isEmpty());
 
-        verify(session).createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username",
-                Trainee.class);
+        verify(session).createQuery(FIND_BY_USERNAME_HQL, Trainee.class);
         verify(query).setParameter("username", username);
         verify(query).uniqueResultOptional();
         verifyNoMoreInteractions(query);
@@ -251,8 +258,7 @@ class TraineeDaoImplTest {
         Query<Long> longQuery = Mockito.mock(Query.class);
         String username = "John";
 
-        when(session.createQuery("SELECT COUNT(t) FROM Trainee t WHERE t.username = :username",
-                Long.class))
+        when(session.createQuery("SELECT COUNT(t) FROM Trainee t WHERE t.username = :username", Long.class))
                 .thenReturn(longQuery);
         when(longQuery.setParameter("username", username)).thenReturn(longQuery);
         when(longQuery.uniqueResult()).thenReturn(1L);
@@ -277,8 +283,7 @@ class TraineeDaoImplTest {
         Query<Long> longQuery = Mockito.mock(Query.class);
         String username = "John";
 
-        when(session.createQuery("SELECT COUNT(t) FROM Trainee t WHERE t.username = :username",
-                Long.class))
+        when(session.createQuery("SELECT COUNT(t) FROM Trainee t WHERE t.username = :username", Long.class))
                 .thenReturn(longQuery);
         when(longQuery.setParameter("username", username)).thenReturn(longQuery);
         when(longQuery.uniqueResult()).thenReturn(0L);
@@ -303,8 +308,7 @@ class TraineeDaoImplTest {
         Query<Long> longQuery = Mockito.mock(Query.class);
         String username = "John";
 
-        when(session.createQuery("SELECT COUNT(t) FROM Trainee t WHERE t.username = :username",
-                Long.class))
+        when(session.createQuery("SELECT COUNT(t) FROM Trainee t WHERE t.username = :username", Long.class))
                 .thenReturn(longQuery);
         when(longQuery.setParameter("username", username)).thenReturn(longQuery);
         when(longQuery.uniqueResult()).thenReturn(null);
@@ -337,16 +341,13 @@ class TraineeDaoImplTest {
 
         List<Trainer> trainers = List.of(janeTrainer, bobTrainer);
         Query<Trainer> trainerQuery = Mockito.mock(Query.class);
+        Query<Trainee> traineeQuery = Mockito.mock(Query.class);
 
-        when(session.createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username",
-                Trainee.class))
-                .thenReturn(query);
-        when(query.setParameter("username", traineeUsername)).thenReturn(query);
-        when(query.uniqueResultOptional()).thenReturn(Optional.of(trainee));
+        when(session.createQuery(TRAINEE_TRAINERS_FETCH_HQL, Trainee.class)).thenReturn(traineeQuery);
+        when(traineeQuery.setParameter("username", traineeUsername)).thenReturn(traineeQuery);
+        when(traineeQuery.uniqueResultOptional()).thenReturn(Optional.of(trainee));
 
-        when(session.createQuery("FROM Trainer t JOIN FETCH t.specialization WHERE t.username IN :usernames",
-                Trainer.class))
-                .thenReturn(trainerQuery);
+        when(session.createQuery(TRAINERS_BY_USERNAMES_HQL, Trainer.class)).thenReturn(trainerQuery);
         when(trainerQuery.setParameter("usernames", trainersUsernames)).thenReturn(trainerQuery);
         when(trainerQuery.list()).thenReturn(trainers);
 
@@ -359,13 +360,11 @@ class TraineeDaoImplTest {
         assertEquals(2, trainee.getTrainers().size());
 
         verify(sessionFactory, times(1)).getCurrentSession();
-        verify(session).createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username",
-                Trainee.class);
-        verify(query).setParameter("username", traineeUsername);
-        verify(query).uniqueResultOptional();
+        verify(session).createQuery(TRAINEE_TRAINERS_FETCH_HQL, Trainee.class);
+        verify(traineeQuery).setParameter("username", traineeUsername);
+        verify(traineeQuery).uniqueResultOptional();
 
-        verify(session).createQuery("FROM Trainer t JOIN FETCH t.specialization WHERE t.username IN :usernames",
-                Trainer.class);
+        verify(session).createQuery(TRAINERS_BY_USERNAMES_HQL, Trainer.class);
         verify(trainerQuery).setParameter("usernames", trainersUsernames);
         verify(trainerQuery).list();
     }
@@ -376,22 +375,20 @@ class TraineeDaoImplTest {
         //given
         String traineeUsername = "John.Doe";
         List<String> trainersUsernames = List.of("Jane.Smith", "Bob.Jones");
+        Query<Trainee> traineeQuery = Mockito.mock(Query.class);
 
-        when(session.createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username",
-                Trainee.class))
-                .thenReturn(query);
-        when(query.setParameter("username", traineeUsername)).thenReturn(query);
-        when(query.uniqueResultOptional()).thenReturn(Optional.empty());
+        when(session.createQuery(TRAINEE_TRAINERS_FETCH_HQL, Trainee.class)).thenReturn(traineeQuery);
+        when(traineeQuery.setParameter("username", traineeUsername)).thenReturn(traineeQuery);
+        when(traineeQuery.uniqueResultOptional()).thenReturn(Optional.empty());
 
         //when
         //then
         assertThrows(EntityNotFoundException.class, () -> dao.updateTrainers(traineeUsername, trainersUsernames));
 
         verify(sessionFactory, times(1)).getCurrentSession();
-        verify(session).createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username",
-                Trainee.class);
-        verify(query).setParameter("username", traineeUsername);
-        verify(query).uniqueResultOptional();
+        verify(session).createQuery(TRAINEE_TRAINERS_FETCH_HQL, Trainee.class);
+        verify(traineeQuery).setParameter("username", traineeUsername);
+        verify(traineeQuery).uniqueResultOptional();
 
         verifyNoMoreInteractions(session);
     }
@@ -406,16 +403,13 @@ class TraineeDaoImplTest {
         Trainer jakeTrainer = buildTrainer(2L, "Jake", "Smith");
         trainee.setTrainers(Set.of(jakeTrainer));
         Query<Trainer> trainerQuery = Mockito.mock(Query.class);
+        Query<Trainee> traineeQuery = Mockito.mock(Query.class);
 
-        when(session.createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username",
-                Trainee.class))
-                .thenReturn(query);
-        when(query.setParameter("username", traineeUsername)).thenReturn(query);
-        when(query.uniqueResultOptional()).thenReturn(Optional.of(trainee));
+        when(session.createQuery(TRAINEE_TRAINERS_FETCH_HQL, Trainee.class)).thenReturn(traineeQuery);
+        when(traineeQuery.setParameter("username", traineeUsername)).thenReturn(traineeQuery);
+        when(traineeQuery.uniqueResultOptional()).thenReturn(Optional.of(trainee));
 
-        when(session.createQuery("FROM Trainer t JOIN FETCH t.specialization WHERE t.username IN :usernames",
-                Trainer.class))
-                .thenReturn(trainerQuery);
+        when(session.createQuery(TRAINERS_BY_USERNAMES_HQL, Trainer.class)).thenReturn(trainerQuery);
         when(trainerQuery.setParameter("usernames", trainersUsernames)).thenReturn(trainerQuery);
         when(trainerQuery.list()).thenReturn(List.of());
 
@@ -425,13 +419,11 @@ class TraineeDaoImplTest {
         assertEquals(1, trainee.getTrainers().size());
 
         verify(sessionFactory, times(1)).getCurrentSession();
-        verify(session).createQuery("FROM Trainee t LEFT JOIN FETCH t.trainers WHERE t.username = :username",
-                Trainee.class);
-        verify(query).setParameter("username", traineeUsername);
-        verify(query).uniqueResultOptional();
+        verify(session).createQuery(TRAINEE_TRAINERS_FETCH_HQL, Trainee.class);
+        verify(traineeQuery).setParameter("username", traineeUsername);
+        verify(traineeQuery).uniqueResultOptional();
 
-        verify(session).createQuery("FROM Trainer t JOIN FETCH t.specialization WHERE t.username IN :usernames",
-                Trainer.class);
+        verify(session).createQuery(TRAINERS_BY_USERNAMES_HQL, Trainer.class);
         verify(trainerQuery).setParameter("usernames", trainersUsernames);
         verify(trainerQuery).list();
     }

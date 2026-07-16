@@ -44,7 +44,7 @@ class TrainerServiceImplTest {
         t.setUsername(firstName + "." + lastName);
         t.setPassword("validPassword");
         t.setActive(true);
-        t.setSpecialization(new TrainingType("fitness"));
+        t.setSpecialization(new TrainingType(1L,"fitness"));
         return t;
     }
 
@@ -56,7 +56,7 @@ class TrainerServiceImplTest {
         when(trainerDao.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         //when
-        Trainer result = service.createTrainerProfile("Jane", "Smith", new TrainingType("yoga"));
+        Trainer result = service.createTrainerProfile("Jane", "Smith", new TrainingType(1L,"yoga"));
 
         //then
         assertEquals("Jane.Smith", result.getUsername());
@@ -73,7 +73,7 @@ class TrainerServiceImplTest {
         //when
         //then
         assertThrows(IllegalArgumentException.class,
-                () -> service.createTrainerProfile("", "Smith", new TrainingType("yoga")));
+                () -> service.createTrainerProfile("", "Smith", new TrainingType(1L, "yoga")));
     }
 
     @Test
@@ -83,7 +83,7 @@ class TrainerServiceImplTest {
         //when
         //then
         assertThrows(IllegalArgumentException.class,
-                () -> service.createTrainerProfile("Jane", "", new TrainingType("yoga")));
+                () -> service.createTrainerProfile("Jane", "", new TrainingType(1L,"yoga")));
     }
 
     @Test
@@ -93,47 +93,91 @@ class TrainerServiceImplTest {
         //when
         //then
         assertThrows(IllegalArgumentException.class,
-                () -> service.createTrainerProfile("Jane", "Smith", null));
+                () -> service.createTrainerProfile("Jane", "Smith", (TrainingType) null));
+    }
+
+    @Test
+    @DisplayName("createTrainerProfile with ID: fetches specialization from DB and saves successfully")
+    void createTrainerProfileWithId_valid_shouldFetchTypeAndSave() {
+        //given
+        TrainingType specialization = new TrainingType(1L,"yoga");
+        when(trainingTypeDao.findById(1L)).thenReturn(Optional.of(specialization));
+        when(usernameGenerator.generate("Jane", "Smith")).thenReturn("Jane.Smith");
+        when(trainerDao.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        //when
+        Trainer result = service.createTrainerProfile("Jane", "Smith", 1L);
+
+        //then
+        assertEquals("Jane.Smith", result.getUsername());
+        assertEquals("yoga", result.getSpecialization().getTrainingTypeName());
+        verify(trainingTypeDao).findById(1L);
+        verify(trainerDao).save(any(Trainer.class));
+    }
+
+    @Test
+    @DisplayName("createTrainerProfile with ID: throws EntityNotFoundException when specialization ID not found")
+    void createTrainerProfileWithId_nonExistingId_shouldThrow() {
+        //given
+        when(trainingTypeDao.findById(99L)).thenReturn(Optional.empty());
+
+        //when / then
+        assertThrows(EntityNotFoundException.class,
+                () -> service.createTrainerProfile("Jane", "Smith", 99L));
+        verify(trainerDao, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createTrainerProfile with ID: throws IllegalArgumentException when parameters are blank/null")
+    void createTrainerProfileWithId_invalidParams_shouldThrow() {
+        // Assertions are checked before the DB call
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createTrainerProfile("", "Smith", 1L));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createTrainerProfile("Jane", "", 1L));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createTrainerProfile("Jane", "Smith", (Long) null));
     }
 
     @Test
     @DisplayName("updateTrainerProfile: valid trainer - saves and returns result")
     void updateTrainerProfile_valid_shouldSaveAndReturn() {
         //given
-        Trainer trainer = buildTrainer(1L, "Jane", "Smith");
-        when(trainerDao.findById(1L)).thenReturn(Optional.of(trainer));
-        when(trainerDao.save(any())).thenReturn(trainer);
+        Trainer existing = buildTrainer(1L, "Jane", "Smith");
+        existing.setSpecialization(new TrainingType(1L,"oldSpec"));
+
+        Trainer updateRequest = new Trainer();
+        updateRequest.setUsername("Jane.Smith");
+        updateRequest.setFirstName("Janet");
+        updateRequest.setLastName("Smithy");
+        updateRequest.setSpecialization(new TrainingType(1L, "newSpec"));
+        updateRequest.setActive(false);
+
+        when(trainerDao.findByUsername("Jane.Smith")).thenReturn(Optional.of(existing));
+        when(trainerDao.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
 
         //when
-        Trainer result = service.updateTrainerProfile(trainer);
+        Trainer result = service.updateTrainerProfile(updateRequest);
 
         //then
-        assertEquals("Jane.Smith", result.getUsername());
-        verify(trainerDao).save(trainer);
+        assertEquals("Janet", result.getFirstName());
+        assertEquals("Smithy", result.getLastName());
+        assertEquals("newSpec", result.getSpecialization().getTrainingTypeName());
+        assertFalse(result.isActive());
+        verify(trainerDao).save(existing);
     }
 
     @Test
-    @DisplayName("updateTrainerProfile: throws EntityNotFoundException when id not found")
-    void updateTrainerProfile_nonExistingId_shouldThrow() {
+    @DisplayName("updateTrainerProfile: throws EntityNotFoundException when username not found")
+    void updateTrainerProfile_nonExistingUsername_shouldThrow() {
         //given
-        Trainer trainer = buildTrainer(99L, "Jane", "Smith");
-        when(trainerDao.findById(99L)).thenReturn(Optional.empty());
+        Trainer trainer = buildTrainer(1L, "Jane", "Smith");
+        trainer.setUsername("Nonexistent.Trainer");
+        when(trainerDao.findByUsername("Nonexistent.Trainer")).thenReturn(Optional.empty());
 
         //when
         //then
         assertThrows(EntityNotFoundException.class,
-                () -> service.updateTrainerProfile(trainer));
-    }
-
-    @Test
-    @DisplayName("updateTrainerProfile: throws when id is null")
-    void updateTrainerProfile_nullId_shouldThrow() {
-        //given
-        Trainer trainer = buildTrainer(null, "Jane", "Smith");
-
-        //when
-        //then
-        assertThrows(IllegalArgumentException.class,
                 () -> service.updateTrainerProfile(trainer));
     }
 
@@ -143,91 +187,6 @@ class TrainerServiceImplTest {
         //given
         Trainer trainer = buildTrainer(1L, "Jane", "Smith");
         trainer.setUsername("");
-        when(trainerDao.findById(1L)).thenReturn(Optional.of(trainer));
-
-        //when
-        //then
-        assertThrows(IllegalArgumentException.class,
-                () -> service.updateTrainerProfile(trainer));
-    }
-
-    @Test
-    @DisplayName("updateTrainerProfile: new username does not exist - saves successfully")
-    void updateTrainerProfile_newUsernameIsNotExists_shouldSave() {
-        //given
-        Trainer existing = buildTrainer(1L, "Jane", "Smith");
-        existing.setUsername("Jane.Smith");
-        when(trainerDao.findById(1L)).thenReturn(Optional.of(existing));
-
-        Trainer updatedTrainer = buildTrainer(1L, "Jane", "Smith");
-        updatedTrainer.setUsername("CoolJane");
-
-        when(usernameGenerator.checkUsernameExists("CoolJane")).thenReturn(false);
-        when(trainerDao.save(any())).thenReturn(updatedTrainer);
-
-        //when
-        Trainer result = service.updateTrainerProfile(updatedTrainer);
-
-        //then
-        assertEquals("CoolJane", result.getUsername());
-        verify(trainerDao).save(updatedTrainer);
-    }
-
-    @Test
-    @DisplayName("updateTrainerProfile: throws when new username is already exists")
-    void updateTrainerProfile_usernameExists_shouldThrow() {
-        //given
-        Trainer existing = buildTrainer(1L, "Jane", "Smith");
-        existing.setUsername("Jane.Smith");
-        when(trainerDao.findById(1L)).thenReturn(Optional.of(existing));
-
-        Trainer updatedTrainer = buildTrainer(1L, "Jane", "Smith");
-        updatedTrainer.setUsername("CoolJane");
-
-        when(usernameGenerator.checkUsernameExists("CoolJane")).thenReturn(true);
-
-        //when
-        //then
-        assertThrows(IllegalArgumentException.class,
-                () -> service.updateTrainerProfile(updatedTrainer));
-        verify(trainerDao, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("updateTrainerProfile: throws when password is blank")
-    void updateTrainerProfile_blankPassword_shouldThrow() {
-        //given
-        Trainer trainer = buildTrainer(1L, "Jane", "Smith");
-        trainer.setPassword("");
-        when(trainerDao.findById(1L)).thenReturn(Optional.of(trainer));
-
-        //when
-        //then
-        assertThrows(IllegalArgumentException.class,
-                () -> service.updateTrainerProfile(trainer));
-    }
-
-    @Test
-    @DisplayName("updateTrainerProfile: throws when password is too short")
-    void updateTrainerProfile_passwordTooShort_shouldThrow() {
-        //given
-        Trainer trainer = buildTrainer(1L, "Jane", "Smith");
-        trainer.setPassword("12345");
-        when(trainerDao.findById(1L)).thenReturn(Optional.of(trainer));
-
-        //when
-        //then
-        assertThrows(IllegalArgumentException.class,
-                () -> service.updateTrainerProfile(trainer));
-    }
-
-    @Test
-    @DisplayName("updateTrainerProfile: throws when specialization is null")
-    void updateTrainerProfile_nullSpecialization_shouldThrow() {
-        //given
-        Trainer trainer = buildTrainer(1L, "Jane", "Smith");
-        trainer.setSpecialization(null);
-        when(trainerDao.findById(1L)).thenReturn(Optional.of(trainer));
 
         //when
         //then
@@ -361,8 +320,8 @@ class TrainerServiceImplTest {
     void getAvailableTrainingTypes_shouldReturnAll() {
         //given
         List<TrainingType> expected = List.of(
-                new TrainingType("fitness"),
-                new TrainingType("yoga"));
+                new TrainingType(1L,"fitness"),
+                new TrainingType(2L,"yoga"));
         when(trainingTypeDao.findAll()).thenReturn(expected);
 
         //when
@@ -371,5 +330,49 @@ class TrainerServiceImplTest {
         //then
         assertEquals(2, result.size());
         verify(trainingTypeDao).findAll();
+    }
+
+    @Test
+    @DisplayName("getTrainingTypeById: delegates to TrainingTypeDao and returns type")
+    void getTrainingTypeById_shouldDelegateToDaoAndReturn() {
+        //given
+        TrainingType type = new TrainingType(1L,"yoga");
+        when(trainingTypeDao.findById(1L)).thenReturn(Optional.of(type));
+
+        //when
+        Optional<TrainingType> result = service.getTrainingTypeById(1L);
+
+        //then
+        assertTrue(result.isPresent());
+        assertEquals("yoga", result.get().getTrainingTypeName());
+        verify(trainingTypeDao).findById(1L);
+    }
+
+    @Test
+    @DisplayName("existsByUsername: delegates to TrainerDao and returns true if exists")
+    void existsByUsername_shouldReturnTrue_whenExists() {
+        //given
+        when(trainerDao.existsByUsername("Jane.Smith")).thenReturn(true);
+
+        //when
+        boolean result = service.existsByUsername("Jane.Smith");
+
+        //then
+        assertTrue(result);
+        verify(trainerDao).existsByUsername("Jane.Smith");
+    }
+
+    @Test
+    @DisplayName("existsByUsername: delegates to TrainerDao and returns false if not exists")
+    void existsByUsername_shouldReturnFalse_whenNotExists() {
+        //given
+        when(trainerDao.existsByUsername("Unknown")).thenReturn(false);
+
+        //when
+        boolean result = service.existsByUsername("Unknown");
+
+        //then
+        assertFalse(result);
+        verify(trainerDao).existsByUsername("Unknown");
     }
 }
