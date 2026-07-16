@@ -41,6 +41,17 @@ public class TrainerServiceImpl implements TrainerService {
         this.usernameGenerator = usernameGenerator;
     }
 
+    @Transactional
+    public Trainer createTrainerProfile(String firstName, String lastName, Long specializationId) {
+        Assert.hasText(firstName, "First name must not be blank");
+        Assert.hasText(lastName, "Last name must not be blank");
+        Assert.notNull(specializationId, "Specialization id must not be null");
+
+        log.info("Fetching training type for id={}", specializationId);
+        TrainingType specialization = trainingTypeDao.findById(specializationId)
+                .orElseThrow(() -> new EntityNotFoundException("Training type not found with id: " + specializationId));
+        return createTrainerProfile(firstName, lastName, specialization);
+    }
 
     @Override
     @Transactional
@@ -72,30 +83,25 @@ public class TrainerServiceImpl implements TrainerService {
     @Override
     @Transactional
     public Trainer updateTrainerProfile(Trainer trainer) {
-        Assert.notNull(trainer.getId(), "Trainer id must not be null for update");
+        Assert.hasText(trainer.getUsername(), "Trainer username must not be blank for update");
 
-        Trainer existing = trainerDao.findById(trainer.getId())
+        Trainer existing = trainerDao.findByUsername(trainer.getUsername())
                 .orElseThrow(() -> {
-                    log.warn("Attempt to update non-existing trainer, id={}", trainer.getId());
-                    return new EntityNotFoundException("Trainer not found with id: " + trainer.getId());
+                    log.warn("Attempt to update non-existing trainer, username={}", trainer.getUsername());
+                    return new EntityNotFoundException("Trainer not found with username: " + trainer.getUsername());
                 });
 
-        validateRequiredFields(trainer, existing);
+        applyChanges(trainer, existing);
 
-        log.info("Updating trainer profile, id={}", trainer.getId());
-        return trainerDao.save(trainer);
+        log.info("Updating trainer profile, username={}", trainer.getUsername());
+        return trainerDao.save(existing);
     }
 
-    private void validateRequiredFields(Trainer trainer, Trainer existing) {
-        Assert.hasText(trainer.getFirstName(), "First name must not be blank");
-        Assert.hasText(trainer.getLastName(), "Last name must not be blank");
-        Assert.hasText(trainer.getUsername(), "Username must not be blank");
-        if (!existing.getUsername().equals(trainer.getUsername())) {
-            Assert.isTrue(!usernameGenerator.checkUsernameExists(trainer.getUsername()), "Username already exists");
-        }
-        Assert.hasText(trainer.getPassword(), "Password must not be blank");
-        Assert.isTrue(trainer.getPassword().length() >= 10, "Password must be at least 10 characters");
-        Assert.notNull(trainer.getSpecialization(), "Specialization must not be null");
+    private void applyChanges(Trainer trainer, Trainer existing) {
+        existing.setFirstName(trainer.getFirstName());
+        existing.setLastName(trainer.getLastName());
+        existing.setSpecialization(trainer.getSpecialization());
+        existing.setActive(trainer.isActive());
     }
 
     @Override
@@ -151,4 +157,16 @@ public class TrainerServiceImpl implements TrainerService {
         return trainingTypeDao.findAll();
     }
 
+    @Override
+    public Optional<TrainingType> getTrainingTypeById(Long id) {
+        log.debug("Fetching training type by id={}", id);
+        return trainingTypeDao.findById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean existsByUsername(String username) {
+        log.debug("Checking whether a trainer exists, username={}", username);
+        return trainerDao.existsByUsername(username);
+    }
 }

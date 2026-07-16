@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,21 +43,16 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     @Transactional
-    public Trainee createTraineeProfile(String firstName, String lastName, LocalDate dateOfBirth, String address) {
-        Assert.hasText(firstName, "First name must not be blank");
-        Assert.hasText(lastName, "Last name must not be blank");
+    public Trainee createTraineeProfile(Trainee trainee) {
+        Assert.hasText(trainee.getFirstName(), "First name must not be blank");
+        Assert.hasText(trainee.getLastName(), "Last name must not be blank");
 
-        log.info("Creating trainee profile for {} {}", firstName, lastName);
+        log.info("Creating trainee profile for {} {}", trainee.getFirstName(), trainee.getLastName());
 
-        String username = usernameGenerator.generate(firstName, lastName);
+        String username = usernameGenerator.generate(trainee.getFirstName(), trainee.getLastName());
 
         String password = UserUtils.generatePassword();
 
-        Trainee trainee = new Trainee();
-        trainee.setFirstName(firstName);
-        trainee.setLastName(lastName);
-        trainee.setDateOfBirth(dateOfBirth);
-        trainee.setAddress(address);
         trainee.setPassword(password);
         trainee.setUsername(username);
         trainee.setActive(true);
@@ -72,30 +66,27 @@ public class TraineeServiceImpl implements TraineeService {
     @Override
     @Transactional
     public Trainee updateTraineeProfile(Trainee trainee) {
-        Assert.notNull(trainee.getId(), "Trainee id must not be null for update");
+        Assert.notNull(trainee.getUsername(), "Trainee username must not be null for update");
 
-        Trainee existing = traineeDao.findById(trainee.getId())
+        Trainee existing = traineeDao.findByUsername(trainee.getUsername())
                 .orElseThrow(() -> {
-                    log.warn("Attempt to update non-existent trainee, id={}", trainee.getId());
-                    return new EntityNotFoundException("Trainee not found with id=" + trainee.getId());
+                    log.warn("Attempt to update non-existent trainee, username={}", trainee.getUsername());
+                    return new EntityNotFoundException("Trainee not found with username=" + trainee.getUsername());
                 });
 
-        validateRequiredFields(trainee, existing);
+        applyChanges(trainee, existing);
 
-        log.info("Updating trainee profile, id={}", trainee.getId());
-        return traineeDao.save(trainee);
+        log.info("Updating trainee profile, username={}", trainee.getUsername());
+        return traineeDao.save(existing);
 
     }
 
-    private void validateRequiredFields(Trainee trainee, Trainee existing) {
-        Assert.hasText(trainee.getFirstName(), "First name must not be blank");
-        Assert.hasText(trainee.getLastName(), "Last name must not be blank");
-        Assert.hasText(trainee.getUsername(), "Username must not be blank");
-        if (!existing.getUsername().equals(trainee.getUsername())) {
-            Assert.isTrue(!usernameGenerator.checkUsernameExists(trainee.getUsername()), "Username already exists");
-        }
-        Assert.hasText(trainee.getPassword(), "Password must not be blank");
-        Assert.isTrue(trainee.getPassword().length() >= 10, "Password must be at least 10 characters");
+    private void applyChanges(Trainee trainee, Trainee existing) {
+        existing.setFirstName(trainee.getFirstName());
+        existing.setLastName(trainee.getLastName());
+        existing.setDateOfBirth(trainee.getDateOfBirth() != null ? trainee.getDateOfBirth() : existing.getDateOfBirth());
+        existing.setAddress(trainee.getAddress() != null ? trainee.getAddress() : existing.getAddress());
+        existing.setActive(trainee.isActive());
     }
 
     @Override
@@ -173,5 +164,12 @@ public class TraineeServiceImpl implements TraineeService {
 
         log.info("Updating trainers list for trainee, username={}, trainers={}", traineeUsername, trainerUsernames);
         return traineeDao.updateTrainers(traineeUsername, trainerUsernames);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean existsByUsername(String username) {
+        log.debug("Checking whether a trainee exists, username={}", username);
+        return traineeDao.existsByUsername(username);
     }
 }

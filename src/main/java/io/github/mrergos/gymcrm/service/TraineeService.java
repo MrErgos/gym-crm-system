@@ -3,12 +3,11 @@ package io.github.mrergos.gymcrm.service;
 import io.github.mrergos.gymcrm.entity.Trainee;
 import io.github.mrergos.gymcrm.entity.Trainer;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 public interface TraineeService {
-    Trainee createTraineeProfile(String firstName, String lastName, LocalDate dateOfBirth, String address);
+    Trainee createTraineeProfile(Trainee trainee);
 
     Trainee updateTraineeProfile(Trainee trainee);
 
@@ -25,4 +24,6 @@ public interface TraineeService {
     List<Trainer> getTrainersNotAssigned(String traineeUsername);
 
     List<Trainer> updateTraineeTrainers(String traineeUsername, List<String> trainerUsernames);
+
+    boolean existsByUsername(String username);
 }

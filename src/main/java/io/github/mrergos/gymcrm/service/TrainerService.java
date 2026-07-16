@@ -9,6 +9,8 @@ import java.util.Optional;
 public interface TrainerService {
     Trainer createTrainerProfile(String firstName, String lastName, TrainingType specialization);
 
+    Trainer createTrainerProfile(String firstName, String lastName, Long specializationId);
+
     Trainer updateTrainerProfile(Trainer trainer);
 
     void changePassword(String username, String newPassword);
@@ -20,4 +22,8 @@ public interface TrainerService {
     List<Trainer> getAllTrainers();
 
     List<TrainingType> getAvailableTrainingTypes();
+
+    Optional<TrainingType> getTrainingTypeById(Long id);
+
+    boolean existsByUsername(String username);
 }
