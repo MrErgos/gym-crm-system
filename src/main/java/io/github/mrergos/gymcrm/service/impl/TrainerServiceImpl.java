@@ -158,6 +158,7 @@ public class TrainerServiceImpl implements TrainerService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Optional<TrainingType> getTrainingTypeById(Long id) {
         log.debug("Fetching training type by id={}", id);
         return trainingTypeDao.findById(id);
