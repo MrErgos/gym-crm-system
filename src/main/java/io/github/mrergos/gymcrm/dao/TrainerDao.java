@@ -10,7 +10,11 @@ public interface TrainerDao {
 
     Optional<Trainer> findById(Long id);
 
+    Optional<Trainer> findByUsername(String username);
+
     List<Trainer> findAll();
+
+    List<Trainer> findAllNotAssignedToTrainee(String traineeUsername);
 
     boolean existsByUsername(String username);
 }
