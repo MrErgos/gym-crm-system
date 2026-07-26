@@ -8,6 +8,7 @@ import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.entity.Training;
 import io.github.mrergos.gymcrm.entity.TrainingType;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
+import io.github.mrergos.gymcrm.metrics.GymMetrics;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +38,9 @@ class TrainingServiceImplTest {
 
     @Mock
     private TrainerDao trainerDao;
+
+    @Mock
+    private GymMetrics gymMetrics;
 
     @InjectMocks
     private TrainingServiceImpl service;
@@ -93,6 +97,7 @@ class TrainingServiceImplTest {
         assertEquals("Morning Yoga", result.getTrainingName());
         assertTrue(trainee.getTrainers().contains(trainer));
         verify(trainingDao).save(training);
+        verify(gymMetrics).incrementTrainingsCreated();
     }
 
     @Test
@@ -107,6 +112,7 @@ class TrainingServiceImplTest {
         assertThrows(EntityNotFoundException.class,
                 () -> service.createTraining(training));
         verify(trainingDao, never()).save(any());
+        verify(gymMetrics, never()).incrementTrainingsCreated();
     }
 
     @Test
@@ -122,6 +128,7 @@ class TrainingServiceImplTest {
         assertThrows(EntityNotFoundException.class,
                 () -> service.createTraining(training));
         verify(trainingDao, never()).save(any());
+        verify(gymMetrics, never()).incrementTrainingsCreated();
     }
 
     @Test
@@ -132,6 +139,7 @@ class TrainingServiceImplTest {
         //then
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTraining(null));
+        verify(gymMetrics, never()).incrementTrainingsCreated();
     }
 
     @Test
@@ -146,6 +154,7 @@ class TrainingServiceImplTest {
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTraining(training));
         verify(trainingDao, never()).save(any());
+        verify(gymMetrics, never()).incrementTrainingsCreated();
     }
 
     @Test
@@ -158,6 +167,7 @@ class TrainingServiceImplTest {
         //then
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTraining(training));
+        verify(gymMetrics, never()).incrementTrainingsCreated();
     }
 
     @Test
@@ -170,6 +180,7 @@ class TrainingServiceImplTest {
         //then
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTraining(training));
+        verify(gymMetrics, never()).incrementTrainingsCreated();
     }
 
     @Test
@@ -183,6 +194,7 @@ class TrainingServiceImplTest {
         //then
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTraining(training));
+        verify(gymMetrics, never()).incrementTrainingsCreated();
     }
 
     @Test
@@ -196,6 +208,7 @@ class TrainingServiceImplTest {
         //then
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTraining(training));
+        verify(gymMetrics, never()).incrementTrainingsCreated();
     }
 
     @Test
@@ -209,6 +222,7 @@ class TrainingServiceImplTest {
         //then
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTraining(training));
+        verify(gymMetrics, never()).incrementTrainingsCreated();
     }
 
     @Test
@@ -222,6 +236,7 @@ class TrainingServiceImplTest {
         //then
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTraining(training));
+        verify(gymMetrics, never()).incrementTrainingsCreated();
     }
 
     @Test
@@ -243,6 +258,7 @@ class TrainingServiceImplTest {
 
         //then
         assertEquals(1, trainee.getTrainers().size());
+        verify(gymMetrics).incrementTrainingsCreated();
     }
 
     @Test

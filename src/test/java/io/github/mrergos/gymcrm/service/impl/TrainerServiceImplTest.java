@@ -5,6 +5,7 @@ import io.github.mrergos.gymcrm.dao.TrainingTypeDao;
 import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.entity.TrainingType;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
+import io.github.mrergos.gymcrm.metrics.GymMetrics;
 import io.github.mrergos.gymcrm.service.UsernameGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,9 @@ class TrainerServiceImplTest {
 
     @Mock
     private UsernameGenerator usernameGenerator;
+
+    @Mock
+    private GymMetrics gymMetrics;
 
     @InjectMocks
     private TrainerServiceImpl service;
@@ -64,6 +68,7 @@ class TrainerServiceImplTest {
         assertTrue(result.isActive());
         assertEquals("yoga", result.getSpecialization().getTrainingTypeName());
         verify(trainerDao).save(any(Trainer.class));
+        verify(gymMetrics).incrementTrainerRegistrations();
     }
 
     @Test
@@ -74,6 +79,7 @@ class TrainerServiceImplTest {
         //then
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTrainerProfile("", "Smith", new TrainingType(1L, "yoga")));
+        verify(gymMetrics, never()).incrementTrainerRegistrations();
     }
 
     @Test
@@ -84,6 +90,7 @@ class TrainerServiceImplTest {
         //then
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTrainerProfile("Jane", "", new TrainingType(1L,"yoga")));
+        verify(gymMetrics, never()).incrementTrainerRegistrations();
     }
 
     @Test
@@ -94,6 +101,7 @@ class TrainerServiceImplTest {
         //then
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTrainerProfile("Jane", "Smith", (TrainingType) null));
+        verify(gymMetrics, never()).incrementTrainerRegistrations();
     }
 
     @Test
@@ -113,6 +121,7 @@ class TrainerServiceImplTest {
         assertEquals("yoga", result.getSpecialization().getTrainingTypeName());
         verify(trainingTypeDao).findById(1L);
         verify(trainerDao).save(any(Trainer.class));
+        verify(gymMetrics).incrementTrainerRegistrations();
     }
 
     @Test
@@ -125,6 +134,7 @@ class TrainerServiceImplTest {
         assertThrows(EntityNotFoundException.class,
                 () -> service.createTrainerProfile("Jane", "Smith", 99L));
         verify(trainerDao, never()).save(any());
+        verify(gymMetrics, never()).incrementTrainerRegistrations();
     }
 
     @Test
@@ -137,6 +147,7 @@ class TrainerServiceImplTest {
                 () -> service.createTrainerProfile("Jane", "", 1L));
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTrainerProfile("Jane", "Smith", (Long) null));
+        verify(gymMetrics, never()).incrementTrainerRegistrations();
     }
 
     @Test

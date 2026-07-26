@@ -5,6 +5,7 @@ import io.github.mrergos.gymcrm.dao.TrainerDao;
 import io.github.mrergos.gymcrm.entity.Trainee;
 import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
+import io.github.mrergos.gymcrm.metrics.GymMetrics;
 import io.github.mrergos.gymcrm.service.UsernameGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,9 @@ class TraineeServiceImplTest {
 
     @Mock
     private UsernameGenerator usernameGenerator;
+
+    @Mock
+    private GymMetrics gymMetrics;
 
     @InjectMocks
     private TraineeServiceImpl service;
@@ -71,6 +75,7 @@ class TraineeServiceImplTest {
         assertEquals(10, result.getPassword().length());
         assertTrue(result.isActive());
         verify(traineeDao).save(input);
+        verify(gymMetrics).incrementTraineeRegistrations();
     }
 
     @Test
@@ -85,6 +90,7 @@ class TraineeServiceImplTest {
         // then
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTraineeProfile(input));
+        verify(gymMetrics, never()).incrementTraineeRegistrations();
     }
 
     @Test
@@ -99,6 +105,7 @@ class TraineeServiceImplTest {
         //then
         assertThrows(IllegalArgumentException.class,
                 () -> service.createTraineeProfile(input));
+        verify(gymMetrics, never()).incrementTraineeRegistrations();
     }
 
     @Test
