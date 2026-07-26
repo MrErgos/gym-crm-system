@@ -4,30 +4,13 @@ import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityScheme;
-import org.springdoc.core.configuration.SpringDocConfiguration;
-import org.springdoc.core.properties.SpringDocConfigProperties;
-import org.springdoc.core.properties.SwaggerUiConfigProperties;
-import org.springdoc.core.properties.SwaggerUiOAuthProperties;
-import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration;
-import org.springdoc.webmvc.ui.SwaggerConfig;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 
 @Configuration
-@Import({
-        SpringDocConfiguration.class,
-        SpringDocConfigProperties.class,
-        SpringDocWebMvcConfiguration.class,
-
-        SwaggerConfig.class,
-        SwaggerUiConfigProperties.class,
-        SwaggerUiOAuthProperties.class,
-})
 public class OpenApiConfig {
 
     private static final String BASIC_AUTH_SCHEME_NAME = "basicAuth";
-
 
     @Bean
     public OpenAPI gymCrmOpenApi() {
@@ -43,6 +26,4 @@ public class OpenApiConfig {
                                         .type(SecurityScheme.Type.HTTP)
                                         .scheme("basic")));
     }
-
-
 }

@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://stg-db-host:5432/gymcrm_stg
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 5
+
+hibernate:
+  hbm2ddl:
+    auto: validate
+  show_sql: false
