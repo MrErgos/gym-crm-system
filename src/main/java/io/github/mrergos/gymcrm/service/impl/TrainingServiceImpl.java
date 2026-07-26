@@ -7,6 +7,7 @@ import io.github.mrergos.gymcrm.entity.Trainee;
 import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.entity.Training;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
+import io.github.mrergos.gymcrm.metrics.GymMetrics;
 import io.github.mrergos.gymcrm.service.TrainingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,7 @@ public class TrainingServiceImpl implements TrainingService {
     private TrainingDao trainingDao;
     private TraineeDao traineeDao;
     private TrainerDao trainerDao;
+    private GymMetrics gymMetrics;
 
     @Autowired
     public void setTrainingDao(TrainingDao trainingDao) {
@@ -43,6 +45,10 @@ public class TrainingServiceImpl implements TrainingService {
         this.trainerDao = trainerDao;
     }
 
+    @Autowired
+    public void setGymMetrics(GymMetrics gymMetrics) {
+        this.gymMetrics = gymMetrics;
+    }
 
     @Override
     @Transactional
@@ -83,6 +89,7 @@ public class TrainingServiceImpl implements TrainingService {
                 training.getTrainingName(), trainee.getUsername(), trainer.getUsername());
 
         Training saved = trainingDao.save(training);
+        gymMetrics.incrementTrainingsCreated();
         log.info("Training created: id={}", saved.getId());
         return saved;
     }

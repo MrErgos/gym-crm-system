@@ -5,6 +5,7 @@ import io.github.mrergos.gymcrm.dao.TrainingTypeDao;
 import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.entity.TrainingType;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
+import io.github.mrergos.gymcrm.metrics.GymMetrics;
 import io.github.mrergos.gymcrm.service.TrainerService;
 import io.github.mrergos.gymcrm.service.UsernameGenerator;
 import io.github.mrergos.gymcrm.util.UserUtils;
@@ -25,6 +26,7 @@ public class TrainerServiceImpl implements TrainerService {
     private TrainerDao trainerDao;
     private TrainingTypeDao trainingTypeDao;
     private UsernameGenerator usernameGenerator;
+    private GymMetrics gymMetrics;
 
     @Autowired
     public void setTrainerDao(TrainerDao trainerDao) {
@@ -39,6 +41,11 @@ public class TrainerServiceImpl implements TrainerService {
     @Autowired
     public void setUsernameGenerator(UsernameGenerator usernameGenerator) {
         this.usernameGenerator = usernameGenerator;
+    }
+
+    @Autowired
+    public void setGymMetrics(GymMetrics gymMetrics) {
+        this.gymMetrics = gymMetrics;
     }
 
     @Transactional
@@ -75,6 +82,7 @@ public class TrainerServiceImpl implements TrainerService {
         trainer.setSpecialization(specialization);
 
         Trainer saved = trainerDao.save(trainer);
+        gymMetrics.incrementTrainerRegistrations();
         log.info("Trainer profile created: id={}, username={}", saved.getId(), saved.getUsername());
         return saved;
 
