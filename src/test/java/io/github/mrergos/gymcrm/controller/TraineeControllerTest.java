@@ -1,15 +1,5 @@
 package io.github.mrergos.gymcrm.controller;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-
 import io.github.mrergos.gymcrm.dto.request.RegisterTraineeRequest;
 import io.github.mrergos.gymcrm.dto.request.UpdateTraineeRequest;
 import io.github.mrergos.gymcrm.dto.request.UpdateTraineeTrainersRequest;
@@ -21,19 +11,25 @@ import io.github.mrergos.gymcrm.entity.Trainee;
 import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.entity.TrainingType;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
-import io.github.mrergos.gymcrm.facade.Credentials;
 import io.github.mrergos.gymcrm.facade.GymFacade;
 import io.github.mrergos.gymcrm.mapper.TraineeMapper;
-import io.github.mrergos.gymcrm.security.BasicAuthCredentialsResolver;
-import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TraineeController tests")
@@ -45,16 +41,8 @@ class TraineeControllerTest {
     @Mock
     private GymFacade facade;
 
-    @Mock
-    private BasicAuthCredentialsResolver credentialsResolver;
-
-    @Mock
-    private HttpServletRequest request;
-
     @InjectMocks
     private TraineeController controller;
-
-    private final Credentials credentials = new Credentials("John.Doe", "password123");
 
     private Trainer buildTrainer(String username) {
         Trainer trainer = new Trainer();
@@ -87,19 +75,17 @@ class TraineeControllerTest {
     }
 
     @Test
-    @DisplayName("getTrainee: resolves credentials and returns mapped trainee")
+    @DisplayName("getTrainee: returns mapped trainee")
     void getTrainee_existingUsername_shouldReturnResponse() {
         //given
         Trainee trainee = new Trainee();
-        trainee.setTrainers(Set.of());
         TraineeResponse mappedResponse = new TraineeResponse("John", "Doe", null, null, true, List.of());
 
-        when(credentialsResolver.resolve(request)).thenReturn(credentials);
-        when(facade.getTraineeProfile(credentials, "John.Doe")).thenReturn(Optional.of(trainee));
+        when(facade.getTraineeProfile("John.Doe")).thenReturn(Optional.of(trainee));
         when(traineeMapper.toResponse(trainee)).thenReturn(mappedResponse);
 
         //when
-        TraineeResponse response = controller.getTrainee(request, "John.Doe");
+        TraineeResponse response = controller.getTrainee("John.Doe");
 
         //then
         assertEquals(mappedResponse, response);
@@ -109,11 +95,10 @@ class TraineeControllerTest {
     @DisplayName("getTrainee: missing trainee throws EntityNotFoundException")
     void getTrainee_missingUsername_shouldThrow() {
         //given
-        when(credentialsResolver.resolve(request)).thenReturn(credentials);
-        when(facade.getTraineeProfile(credentials, "unknown")).thenReturn(Optional.empty());
+        when(facade.getTraineeProfile("unknown")).thenReturn(Optional.empty());
 
         //when //then
-        assertThrows(EntityNotFoundException.class, () -> controller.getTrainee(request, "unknown"));
+        assertThrows(EntityNotFoundException.class, () -> controller.getTrainee("unknown"));
     }
 
     @Test
@@ -126,12 +111,11 @@ class TraineeControllerTest {
         UpdateTraineeResponse mappedResponse = new UpdateTraineeResponse("John.Doe", "John", "Doe", null, null, true, List.of());
 
         when(traineeMapper.toEntity(updateRequest)).thenReturn(mapped);
-        when(credentialsResolver.resolve(request)).thenReturn(credentials);
-        when(facade.updateTraineeProfile(credentials, mapped)).thenReturn(updated);
+        when(facade.updateTraineeProfile(mapped)).thenReturn(updated);
         when(traineeMapper.toUpdateResponse(updated)).thenReturn(mappedResponse);
 
         //when
-        UpdateTraineeResponse response = controller.updateTrainee(request, "John.Doe", updateRequest);
+        UpdateTraineeResponse response = controller.updateTrainee("John.Doe", updateRequest);
 
         //then
         assertEquals("John.Doe", mapped.getUsername());
@@ -139,17 +123,14 @@ class TraineeControllerTest {
     }
 
     @Test
-    @DisplayName("toggleTraineeStatus: resolves credentials and toggles via facade")
+    @DisplayName("toggleTraineeStatus: toggles via facade")
     void toggleTraineeStatus_shouldReturnOk() {
-        //given
-        when(credentialsResolver.resolve(request)).thenReturn(credentials);
-
         //when
-        ResponseEntity<Void> response = controller.toggleTraineeStatus(request, "John.Doe");
+        ResponseEntity<Void> response = controller.toggleTraineeStatus("John.Doe");
 
         //then
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(facade).toggleTraineeActive(credentials, "John.Doe");
+        verify(facade).toggleTraineeActive("John.Doe");
     }
 
     @Test
@@ -159,12 +140,11 @@ class TraineeControllerTest {
         UpdateTraineeTrainersRequest body = new UpdateTraineeTrainersRequest(List.of("Anna.Lee"));
         Trainer trainer = buildTrainer("Anna.Lee");
 
-        when(credentialsResolver.resolve(request)).thenReturn(credentials);
-        when(facade.updateTraineeTrainers(credentials, "John.Doe", List.of("Anna.Lee")))
+        when(facade.updateTraineeTrainers("John.Doe", List.of("Anna.Lee")))
                 .thenReturn(List.of(trainer));
 
         //when
-        List<TrainerShortResponse> response = controller.updateTraineeTrainers(request, "John.Doe", body);
+        List<TrainerShortResponse> response = controller.updateTraineeTrainers("John.Doe", body);
 
         //then
         assertEquals(1, response.size());
@@ -178,11 +158,10 @@ class TraineeControllerTest {
         //given
         Trainer trainer = buildTrainer("Anna.Lee");
 
-        when(credentialsResolver.resolve(request)).thenReturn(credentials);
-        when(facade.getTrainersNotAssigned(credentials, "John.Doe")).thenReturn(List.of(trainer));
+        when(facade.getTrainersNotAssigned("John.Doe")).thenReturn(List.of(trainer));
 
         //when
-        List<TrainerShortResponse> response = controller.getAvailableTrainers(request, "John.Doe");
+        List<TrainerShortResponse> response = controller.getAvailableTrainers("John.Doe");
 
         //then
         assertEquals(1, response.size());
@@ -193,26 +172,22 @@ class TraineeControllerTest {
     @DisplayName("getAvailableTrainers: returns empty list when none available")
     void getAvailableTrainers_noneAvailable_shouldReturnEmptyList() {
         //given
-        when(credentialsResolver.resolve(request)).thenReturn(credentials);
-        when(facade.getTrainersNotAssigned(credentials, "John.Doe")).thenReturn(List.of());
+        when(facade.getTrainersNotAssigned("John.Doe")).thenReturn(List.of());
 
         //when
-        List<TrainerShortResponse> response = controller.getAvailableTrainers(request, "John.Doe");
+        List<TrainerShortResponse> response = controller.getAvailableTrainers("John.Doe");
 
         //then
         assertEquals(0, response.size());
     }
 
     @Test
-    @DisplayName("deleteTrainee: resolves credentials and deletes via facade")
+    @DisplayName("deleteTrainee: deletes via facade")
     void deleteTrainee_shouldDelegateToFacade() {
-        //given
-        when(credentialsResolver.resolve(request)).thenReturn(credentials);
-
         //when
-        controller.deleteTrainee(request, "John.Doe");
+        controller.deleteTrainee("John.Doe");
 
         //then
-        verify(facade).deleteTraineeProfile(credentials, "John.Doe");
+        verify(facade).deleteTraineeProfile("John.Doe");
     }
 }

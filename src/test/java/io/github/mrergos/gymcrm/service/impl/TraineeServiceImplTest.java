@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -38,9 +39,11 @@ class TraineeServiceImplTest {
     @Mock
     private GymMetrics gymMetrics;
 
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
     @InjectMocks
     private TraineeServiceImpl service;
-
 
     private Trainee buildTrainee(Long id, String firstName, String lastName) {
         Trainee t = new Trainee();
@@ -64,6 +67,7 @@ class TraineeServiceImplTest {
         input.setAddress("Address");
 
         when(usernameGenerator.generate("John", "Doe")).thenReturn("John.Doe");
+        when(passwordEncoder.encode(any())).thenReturn("encodedPassword");
         when(traineeDao.save(any(Trainee.class))).thenAnswer(inv -> inv.getArgument(0));
 
         //when
@@ -280,12 +284,13 @@ class TraineeServiceImplTest {
         //given
         Trainee trainee = buildTrainee(1L, "John", "Doe");
         when(traineeDao.findByUsername("John.Doe")).thenReturn(Optional.of(trainee));
+        when(passwordEncoder.encode("newValidPassword")).thenReturn("encodedNewValidPassword");
 
         //when
         service.changePassword("John.Doe", "newValidPassword");
 
         //then
-        assertEquals("newValidPassword", trainee.getPassword());
+        assertEquals("encodedNewValidPassword", trainee.getPassword());
         verify(traineeDao).save(trainee);
     }
 

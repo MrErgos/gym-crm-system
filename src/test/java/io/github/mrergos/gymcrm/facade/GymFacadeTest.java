@@ -4,11 +4,9 @@ import io.github.mrergos.gymcrm.entity.Trainee;
 import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.entity.Training;
 import io.github.mrergos.gymcrm.entity.TrainingType;
-import io.github.mrergos.gymcrm.service.AuthenticationService;
 import io.github.mrergos.gymcrm.service.TraineeService;
 import io.github.mrergos.gymcrm.service.TrainerService;
 import io.github.mrergos.gymcrm.service.TrainingService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,32 +34,12 @@ class GymFacadeTest {
     @Mock
     private TrainingService trainingService;
 
-    @Mock
-    private AuthenticationService authenticationService;
-
     @InjectMocks
     private GymFacade facade;
 
-    private static final Credentials CREDENTIALS = new Credentials("John.Doe", "validPassword");
-
-    @BeforeEach
-    void setUp() {
-        lenient().doNothing().when(authenticationService).authenticate(anyString(), anyString());
-    }
-
     @Test
-    @DisplayName("login: authenticates credentials successfully")
-    void login_shouldAuthenticateSuccessfully() {
-        // when
-        facade.login(CREDENTIALS);
-
-        // then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
-    }
-
-    @Test
-    @DisplayName("createTraineeProfile: delegates to TraineeService without authentication")
-    void createTraineeProfile_shouldDelegateToServiceWithoutAuth() {
+    @DisplayName("createTraineeProfile: delegates to TraineeService")
+    void createTraineeProfile_shouldDelegateToService() {
         //given
         Trainee traineeInput = new Trainee();
         traineeInput.setFirstName("John");
@@ -77,12 +55,11 @@ class GymFacadeTest {
         //then
         assertEquals("John.Doe", result.getUsername());
         verify(traineeService).createTraineeProfile(traineeInput);
-        verifyNoInteractions(authenticationService);
     }
 
     @Test
-    @DisplayName("getAvailableTrainingTypes: delegates to TrainerService without authentication")
-    void getAvailableTrainingTypes_shouldDelegateToServiceWithoutAuth() {
+    @DisplayName("getAvailableTrainingTypes: delegates to TrainerService")
+    void getAvailableTrainingTypes_shouldDelegateToService() {
         //given
         List<TrainingType> expected = List.of(new TrainingType("yoga"), new TrainingType("fitness"));
         when(trainerService.getAvailableTrainingTypes()).thenReturn(expected);
@@ -93,139 +70,104 @@ class GymFacadeTest {
         //then
         assertEquals(2, result.size());
         verify(trainerService).getAvailableTrainingTypes();
-        verifyNoInteractions(authenticationService);
     }
 
     @Test
-    @DisplayName("updateTraineeProfile: authenticates then delegates to TraineeService")
-    void updateTraineeProfile_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("updateTraineeProfile: delegates to TraineeService")
+    void updateTraineeProfile_shouldDelegateToService() {
         //given
         Trainee trainee = new Trainee();
         trainee.setUsername("John.Doe");
         when(traineeService.updateTraineeProfile(trainee)).thenReturn(trainee);
 
         //when
-        Trainee result = facade.updateTraineeProfile(CREDENTIALS, trainee);
+        Trainee result = facade.updateTraineeProfile(trainee);
 
         //then
         assertEquals("John.Doe", result.getUsername());
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(traineeService).updateTraineeProfile(trainee);
     }
 
     @Test
-    @DisplayName("deleteTraineeProfile: authenticates then delegates to TraineeService")
-    void deleteTraineeProfile_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("deleteTraineeProfile: delegates to TraineeService")
+    void deleteTraineeProfile_shouldDelegateToService() {
         //given
         //when
-        facade.deleteTraineeProfile(CREDENTIALS, "Alice.Smith");
+        facade.deleteTraineeProfile("Alice.Smith");
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(traineeService).deleteTraineeProfile("Alice.Smith");
     }
 
     @Test
-    @DisplayName("getTraineeProfile: authenticates then delegates to TraineeService")
-    void getTraineeProfile_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("getTraineeProfile: delegates to TraineeService")
+    void getTraineeProfile_shouldDelegateToService() {
         //given
         Trainee trainee = new Trainee();
         when(traineeService.getTraineeProfile("Alice.Smith")).thenReturn(Optional.of(trainee));
 
         //when
-        Optional<Trainee> result = facade.getTraineeProfile(CREDENTIALS, "Alice.Smith");
+        Optional<Trainee> result = facade.getTraineeProfile("Alice.Smith");
 
         //then
         assertTrue(result.isPresent());
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(traineeService).getTraineeProfile("Alice.Smith");
     }
 
     @Test
-    @DisplayName("getAllTrainees: authenticates then delegates to TraineeService")
-    void getAllTrainees_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("getAllTrainees: delegates to TraineeService")
+    void getAllTrainees_shouldDelegateToService() {
         //given
         when(traineeService.getAllTrainees()).thenReturn(List.of());
 
         //when
-        facade.getAllTrainees(CREDENTIALS);
+        facade.getAllTrainees();
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(traineeService).getAllTrainees();
     }
 
     @Test
-    @DisplayName("getTrainersNotAssigned: authenticates then delegates to TraineeService")
-    void getTrainersNotAssigned_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("getTrainersNotAssigned: delegates to TraineeService")
+    void getTrainersNotAssigned_shouldDelegateToService() {
         //given
         when(traineeService.getTrainersNotAssigned("Alice.Smith")).thenReturn(List.of());
 
         //when
-        facade.getTrainersNotAssigned(CREDENTIALS, "Alice.Smith");
+        facade.getTrainersNotAssigned("Alice.Smith");
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(traineeService).getTrainersNotAssigned("Alice.Smith");
     }
 
     @Test
-    @DisplayName("updateTraineeProfile: propagates authentication failure and does not call service")
-    void updateTraineeProfile_authFailure_shouldNotCallService() {
-        //given
-        Trainee trainee = new Trainee();
-        doThrow(new RuntimeException("Invalid credentials"))
-                .when(authenticationService).authenticate("John.Doe", "validPassword");
-
-        //when
-        //then
-        assertThrows(RuntimeException.class, () -> facade.updateTraineeProfile(CREDENTIALS, trainee));
-        verifyNoInteractions(traineeService);
-    }
-
-    @Test
-    @DisplayName("updateTraineeTrainers: authenticates then delegates to TraineeService")
-    void updateTraineeTrainers_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("updateTraineeTrainers: delegates to TraineeService")
+    void updateTraineeTrainers_shouldDelegateToService() {
         //given
         List<String> trainerUsernames = List.of("Jane.Smith", "Bob.Jones");
         when(traineeService.updateTraineeTrainers("Alice.Smith", trainerUsernames)).thenReturn(List.of());
 
         //when
-        facade.updateTraineeTrainers(CREDENTIALS, "Alice.Smith", trainerUsernames);
+        facade.updateTraineeTrainers("Alice.Smith", trainerUsernames);
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(traineeService).updateTraineeTrainers("Alice.Smith", trainerUsernames);
     }
 
     @Test
-    @DisplayName("changeTraineePassword: authenticates then delegates to TraineeService")
-    void changeTraineePassword_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("toggleTraineeActive: delegates to TraineeService")
+    void toggleTraineeActive_shouldDelegateToService() {
         //given
         //when
-        facade.changeTraineePassword(CREDENTIALS, "newValidPassword");
+        facade.toggleTraineeActive("Alice.Smith");
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
-        verify(traineeService).changePassword("John.Doe", "newValidPassword");
-    }
-
-    @Test
-    @DisplayName("toggleTraineeActive: authenticates then delegates to TraineeService")
-    void toggleTraineeActive_shouldAuthenticateAndDelegateToService() {
-        //given
-        //when
-        facade.toggleTraineeActive(CREDENTIALS, "Alice.Smith");
-
-        //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(traineeService).toggleActive("Alice.Smith");
     }
 
-
     @Test
-    @DisplayName("createTrainerProfile with specialization ID: delegates to TrainerService without authentication")
-    void createTrainerProfileWithId_shouldDelegateToServiceWithoutAuth() {
+    @DisplayName("createTrainerProfile with specialization ID: delegates to TrainerService")
+    void createTrainerProfileWithId_shouldDelegateToService() {
         //given
         Trainer expected = new Trainer();
         expected.setUsername("Jane.Smith");
@@ -237,12 +179,11 @@ class GymFacadeTest {
         //then
         assertEquals("Jane.Smith", result.getUsername());
         verify(trainerService).createTrainerProfile("Jane", "Smith", 1L);
-        verifyNoInteractions(authenticationService);
     }
 
     @Test
-    @DisplayName("createTrainerProfile with TrainingType: delegates to TrainerService without authentication")
-    void createTrainerProfileWithSpecialization_shouldDelegateToServiceWithoutAuth() {
+    @DisplayName("createTrainerProfile with TrainingType: delegates to TrainerService")
+    void createTrainerProfileWithSpecialization_shouldDelegateToService() {
         //given
         Trainer expected = new Trainer();
         expected.setUsername("Jane.Smith");
@@ -255,124 +196,103 @@ class GymFacadeTest {
         //then
         assertEquals("Jane.Smith", result.getUsername());
         verify(trainerService).createTrainerProfile("Jane", "Smith", type);
-        verifyNoInteractions(authenticationService);
     }
 
     @Test
-    @DisplayName("updateTrainerProfile: authenticates then delegates to TrainerService")
-    void updateTrainerProfile_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("updateTrainerProfile: delegates to TrainerService")
+    void updateTrainerProfile_shouldDelegateToService() {
         //given
         Trainer trainer = new Trainer();
         when(trainerService.updateTrainerProfile(trainer)).thenReturn(trainer);
 
         //when
-        facade.updateTrainerProfile(CREDENTIALS, trainer);
+        facade.updateTrainerProfile(trainer);
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(trainerService).updateTrainerProfile(trainer);
     }
 
     @Test
-    @DisplayName("getTrainerProfile: authenticates then delegates to TrainerService")
-    void getTrainerProfile_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("getTrainerProfile: delegates to TrainerService")
+    void getTrainerProfile_shouldDelegateToService() {
         //given
         when(trainerService.getTrainerProfile("Jane.Smith")).thenReturn(Optional.empty());
 
         //when
-        facade.getTrainerProfile(CREDENTIALS, "Jane.Smith");
+        facade.getTrainerProfile("Jane.Smith");
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(trainerService).getTrainerProfile("Jane.Smith");
     }
 
     @Test
-    @DisplayName("getAllTrainers: authenticates then delegates to TrainerService")
-    void getAllTrainers_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("getAllTrainers: delegates to TrainerService")
+    void getAllTrainers_shouldDelegateToService() {
         //given
         when(trainerService.getAllTrainers()).thenReturn(List.of());
 
         //when
-        facade.getAllTrainers(CREDENTIALS);
+        facade.getAllTrainers();
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(trainerService).getAllTrainers();
     }
 
     @Test
-    @DisplayName("changeTrainerPassword: authenticates then delegates to TrainerService")
-    void changeTrainerPassword_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("toggleTrainerActive: delegates to TrainerService")
+    void toggleTrainerActive_shouldDelegateToService() {
         //given
         //when
-        facade.changeTrainerPassword(CREDENTIALS, "newValidPassword");
+        facade.toggleTrainerActive("Jane.Smith");
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
-        verify(trainerService).changePassword("John.Doe", "newValidPassword");
-    }
-
-    @Test
-    @DisplayName("toggleTrainerActive: authenticates then delegates to TrainerService")
-    void toggleTrainerActive_shouldAuthenticateAndDelegateToService() {
-        //given
-        //when
-        facade.toggleTrainerActive(CREDENTIALS, "Jane.Smith");
-
-        //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(trainerService).toggleActive("Jane.Smith");
     }
 
-
     @Test
-    @DisplayName("createTraining: authenticates then delegates to TrainingService")
-    void createTraining_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("createTraining: delegates to TrainingService")
+    void createTraining_shouldDelegateToService() {
         //given
         Training training = new Training();
         training.setTrainingName("Morning Yoga");
         when(trainingService.createTraining(training)).thenReturn(training);
 
         //when
-        facade.createTraining(CREDENTIALS, training);
+        facade.createTraining(training);
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(trainingService).createTraining(training);
     }
 
     @Test
-    @DisplayName("getTraining: authenticates then delegates to TrainingService")
-    void getTraining_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("getTraining: delegates to TrainingService")
+    void getTraining_shouldDelegateToService() {
         //given
         when(trainingService.getTraining(1L)).thenReturn(Optional.empty());
 
         //when
-        facade.getTraining(CREDENTIALS, 1L);
+        facade.getTraining(1L);
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(trainingService).getTraining(1L);
     }
 
     @Test
-    @DisplayName("getAllTrainings: authenticates then delegates to TrainingService")
-    void getAllTrainings_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("getAllTrainings: delegates to TrainingService")
+    void getAllTrainings_shouldDelegateToService() {
         //given
         when(trainingService.getAllTrainings()).thenReturn(List.of());
 
         //when
-        facade.getAllTrainings(CREDENTIALS);
+        facade.getAllTrainings();
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(trainingService).getAllTrainings();
     }
 
     @Test
-    @DisplayName("getTraineeTrainings: authenticates then delegates to TrainingService with all filters")
-    void getTraineeTrainings_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("getTraineeTrainings: delegates to TrainingService with all filters")
+    void getTraineeTrainings_shouldDelegateToService() {
         //given
         LocalDate from = LocalDate.of(2024, 1, 1);
         LocalDate to = LocalDate.of(2024, 12, 31);
@@ -380,16 +300,15 @@ class GymFacadeTest {
                 .thenReturn(List.of());
 
         //when
-        facade.getTraineeTrainings(CREDENTIALS, "Alice.Smith", from, to, "Jane.Smith", "yoga");
+        facade.getTraineeTrainings("Alice.Smith", from, to, "Jane.Smith", "yoga");
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(trainingService).getTraineeTrainings("Alice.Smith", from, to, "Jane.Smith", "yoga");
     }
 
     @Test
-    @DisplayName("getTrainerTrainings: authenticates then delegates to TrainingService with all filters")
-    void getTrainerTrainings_shouldAuthenticateAndDelegateToService() {
+    @DisplayName("getTrainerTrainings: delegates to TrainingService with all filters")
+    void getTrainerTrainings_shouldDelegateToService() {
         //given
         LocalDate from = LocalDate.of(2024, 1, 1);
         LocalDate to = LocalDate.of(2024, 12, 31);
@@ -397,16 +316,15 @@ class GymFacadeTest {
                 .thenReturn(List.of());
 
         //when
-        facade.getTrainerTrainings(CREDENTIALS, "Jane.Smith", from, to, "Alice.Smith");
+        facade.getTrainerTrainings("Jane.Smith", from, to, "Alice.Smith");
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(trainingService).getTrainerTrainings("Jane.Smith", from, to, "Alice.Smith");
     }
 
     @Test
-    @DisplayName("getTrainingTypeById: delegates to TrainerService without authentication")
-    void getTrainingTypeById_shouldDelegateToServiceWithoutAuth() {
+    @DisplayName("getTrainingTypeById: delegates to TrainerService")
+    void getTrainingTypeById_shouldDelegateToService() {
         //given
         TrainingType type = new TrainingType("yoga");
         when(trainerService.getTrainingTypeById(1L)).thenReturn(Optional.of(type));
@@ -418,7 +336,6 @@ class GymFacadeTest {
         assertTrue(result.isPresent());
         assertEquals("yoga", result.get().getTrainingTypeName());
         verify(trainerService).getTrainingTypeById(1L);
-        verifyNoInteractions(authenticationService);
     }
 
     @Test
@@ -428,10 +345,9 @@ class GymFacadeTest {
         when(traineeService.existsByUsername("John.Doe")).thenReturn(true);
 
         //when
-        facade.changePassword(CREDENTIALS, "newSecurePassword");
+        facade.changePassword("John.Doe", "newSecurePassword");
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(traineeService).existsByUsername("John.Doe");
         verify(traineeService).changePassword("John.Doe", "newSecurePassword");
         verifyNoInteractions(trainerService);
@@ -444,10 +360,9 @@ class GymFacadeTest {
         when(traineeService.existsByUsername("John.Doe")).thenReturn(false);
 
         //when
-        facade.changePassword(CREDENTIALS, "newSecurePassword");
+        facade.changePassword("John.Doe", "newSecurePassword");
 
         //then
-        verify(authenticationService).authenticate("John.Doe", "validPassword");
         verify(traineeService).existsByUsername("John.Doe");
         verify(trainerService).changePassword("John.Doe", "newSecurePassword");
         verify(traineeService, never()).changePassword(anyString(), anyString());

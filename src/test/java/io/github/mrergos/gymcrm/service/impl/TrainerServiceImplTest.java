@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +38,9 @@ class TrainerServiceImplTest {
     @Mock
     private GymMetrics gymMetrics;
 
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
     @InjectMocks
     private TrainerServiceImpl service;
 
@@ -57,6 +61,7 @@ class TrainerServiceImplTest {
     void createTrainerProfile_valid_shouldGenerateUsernameAndSave() {
         //given
         when(usernameGenerator.generate("Jane", "Smith")).thenReturn("Jane.Smith");
+        when(passwordEncoder.encode(any())).thenReturn("encodedPassword");
         when(trainerDao.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         //when
@@ -111,6 +116,7 @@ class TrainerServiceImplTest {
         TrainingType specialization = new TrainingType(1L,"yoga");
         when(trainingTypeDao.findById(1L)).thenReturn(Optional.of(specialization));
         when(usernameGenerator.generate("Jane", "Smith")).thenReturn("Jane.Smith");
+        when(passwordEncoder.encode(any())).thenReturn("encodedPassword");
         when(trainerDao.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
 
         //when
@@ -255,12 +261,13 @@ class TrainerServiceImplTest {
         //given
         Trainer trainer = buildTrainer(1L, "Jane", "Smith");
         when(trainerDao.findByUsername("Jane.Smith")).thenReturn(Optional.of(trainer));
+        when(passwordEncoder.encode("newValidPassword")).thenReturn("encodedNewValidPassword");
 
         //when
         service.changePassword("Jane.Smith", "newValidPassword");
 
         //then
-        assertEquals("newValidPassword", trainer.getPassword());
+        assertEquals("encodedNewValidPassword", trainer.getPassword());
         verify(trainerDao).save(trainer);
     }
 

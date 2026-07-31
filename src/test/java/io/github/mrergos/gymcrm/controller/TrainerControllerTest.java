@@ -1,15 +1,5 @@
 package io.github.mrergos.gymcrm.controller;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-
-import io.github.mrergos.gymcrm.controller.TrainerController;
 import io.github.mrergos.gymcrm.dto.request.RegisterTrainerRequest;
 import io.github.mrergos.gymcrm.dto.request.UpdateTrainerRequest;
 import io.github.mrergos.gymcrm.dto.response.CredentialsResponse;
@@ -18,19 +8,25 @@ import io.github.mrergos.gymcrm.dto.response.TrainingTypeResponse;
 import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.entity.TrainingType;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
-import io.github.mrergos.gymcrm.facade.Credentials;
 import io.github.mrergos.gymcrm.facade.GymFacade;
 import io.github.mrergos.gymcrm.mapper.TrainerMapper;
-import io.github.mrergos.gymcrm.security.BasicAuthCredentialsResolver;
-import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TrainerController tests")
@@ -42,16 +38,8 @@ class TrainerControllerTest {
     @Mock
     private GymFacade facade;
 
-    @Mock
-    private BasicAuthCredentialsResolver credentialsResolver;
-
-    @Mock
-    private HttpServletRequest request;
-
     @InjectMocks
     private TrainerController controller;
-
-    private final Credentials credentials = new Credentials("Anna.Lee", "password123");
 
     @Test
     @DisplayName("registerTrainer: delegates to facade and returns credentials")
@@ -73,20 +61,18 @@ class TrainerControllerTest {
     }
 
     @Test
-    @DisplayName("getTrainer: resolves credentials and returns mapped trainer")
+    @DisplayName("getTrainer: returns mapped trainer")
     void getTrainer_existingUsername_shouldReturnResponse() {
         //given
         Trainer trainer = new Trainer();
-        trainer.setTrainees(Set.of());
         TrainerResponse mappedResponse = new TrainerResponse("Anna.Lee", "Anna", "Lee", true,
                 new TrainingTypeResponse("Cardio", 1L), List.of());
 
-        when(credentialsResolver.resolve(request)).thenReturn(credentials);
-        when(facade.getTrainerProfile(credentials, "Anna.Lee")).thenReturn(Optional.of(trainer));
+        when(facade.getTrainerProfile("Anna.Lee")).thenReturn(Optional.of(trainer));
         when(trainerMapper.toResponse(trainer)).thenReturn(mappedResponse);
 
         //when
-        TrainerResponse response = controller.getTrainer(request, "Anna.Lee");
+        TrainerResponse response = controller.getTrainer("Anna.Lee");
 
         //then
         assertEquals(mappedResponse, response);
@@ -96,11 +82,10 @@ class TrainerControllerTest {
     @DisplayName("getTrainer: missing trainer throws EntityNotFoundException")
     void getTrainer_missingUsername_shouldThrow() {
         //given
-        when(credentialsResolver.resolve(request)).thenReturn(credentials);
-        when(facade.getTrainerProfile(credentials, "unknown")).thenReturn(Optional.empty());
+        when(facade.getTrainerProfile("unknown")).thenReturn(Optional.empty());
 
         //when //then
-        assertThrows(EntityNotFoundException.class, () -> controller.getTrainer(request, "unknown"));
+        assertThrows(EntityNotFoundException.class, () -> controller.getTrainer("unknown"));
     }
 
     @Test
@@ -113,14 +98,12 @@ class TrainerControllerTest {
         TrainerResponse mappedResponse = new TrainerResponse("Anna.Lee", "Anna", "Lee", true,
                 new TrainingTypeResponse("Cardio", 1L), List.of());
 
-        when(credentialsResolver.resolve(request)).thenReturn(credentials);
         when(facade.getTrainingTypeById(1L)).thenReturn(Optional.of(specialization));
-        when(facade.updateTrainerProfile(org.mockito.ArgumentMatchers.eq(credentials), org.mockito.ArgumentMatchers.any(Trainer.class)))
-                .thenReturn(updated);
+        when(facade.updateTrainerProfile(any(Trainer.class))).thenReturn(updated);
         when(trainerMapper.toResponse(updated)).thenReturn(mappedResponse);
 
         //when
-        TrainerResponse response = controller.updateTrainer(request, "Anna.Lee", updateRequest);
+        TrainerResponse response = controller.updateTrainer("Anna.Lee", updateRequest);
 
         //then
         assertEquals(mappedResponse, response);
@@ -132,25 +115,21 @@ class TrainerControllerTest {
         //given
         UpdateTrainerRequest updateRequest = new UpdateTrainerRequest("Anna", "Lee", 999L, true);
 
-        when(credentialsResolver.resolve(request)).thenReturn(credentials);
         when(facade.getTrainingTypeById(999L)).thenReturn(Optional.empty());
 
         //when //then
-        assertThrows(EntityNotFoundException.class, () -> controller.updateTrainer(request, "Anna.Lee", updateRequest));
+        assertThrows(EntityNotFoundException.class, () -> controller.updateTrainer("Anna.Lee", updateRequest));
     }
 
     @Test
-    @DisplayName("toggleTrainerStatus: resolves credentials and toggles via facade")
+    @DisplayName("toggleTrainerStatus: toggles via facade")
     void toggleTrainerStatus_shouldReturnOk() {
-        //given
-        when(credentialsResolver.resolve(request)).thenReturn(credentials);
-
         //when
-        ResponseEntity<Void> response = controller.toggleTrainerStatus(request, "Anna.Lee");
+        ResponseEntity<Void> response = controller.toggleTrainerStatus("Anna.Lee");
 
         //then
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(facade).toggleTrainerActive(credentials, "Anna.Lee");
+        verify(facade).toggleTrainerActive("Anna.Lee");
     }
 
     @Test
