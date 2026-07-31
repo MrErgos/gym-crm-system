@@ -12,6 +12,7 @@ import io.github.mrergos.gymcrm.util.UserUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -27,6 +28,7 @@ public class TrainerServiceImpl implements TrainerService {
     private TrainingTypeDao trainingTypeDao;
     private UsernameGenerator usernameGenerator;
     private GymMetrics gymMetrics;
+    private PasswordEncoder passwordEncoder;
 
     @Autowired
     public void setTrainerDao(TrainerDao trainerDao) {
@@ -46,6 +48,11 @@ public class TrainerServiceImpl implements TrainerService {
     @Autowired
     public void setGymMetrics(GymMetrics gymMetrics) {
         this.gymMetrics = gymMetrics;
+    }
+
+    @Autowired
+    public void setPasswordEncoder(PasswordEncoder passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional
@@ -71,21 +78,22 @@ public class TrainerServiceImpl implements TrainerService {
                 firstName, lastName, specialization.getTrainingTypeName());
 
         String username = usernameGenerator.generate(firstName, lastName);
-        String password = UserUtils.generatePassword();
+        String rawPassword = UserUtils.generatePassword();
 
         Trainer trainer = new Trainer();
         trainer.setFirstName(firstName);
         trainer.setLastName(lastName);
         trainer.setUsername(username);
-        trainer.setPassword(password);
+        trainer.setPassword(passwordEncoder.encode(rawPassword));
         trainer.setActive(true);
         trainer.setSpecialization(specialization);
 
         Trainer saved = trainerDao.save(trainer);
         gymMetrics.incrementTrainerRegistrations();
         log.info("Trainer profile created: id={}, username={}", saved.getId(), saved.getUsername());
-        return saved;
 
+        saved.setPassword(rawPassword);
+        return saved;
     }
 
     @Override
@@ -124,7 +132,7 @@ public class TrainerServiceImpl implements TrainerService {
                     return new EntityNotFoundException("Trainer not found with username: " + username);
                 });
 
-        trainer.setPassword(newPassword);
+        trainer.setPassword(passwordEncoder.encode(newPassword));
         trainerDao.save(trainer);
         log.info("Password changed for trainer, username={}", username);
     }

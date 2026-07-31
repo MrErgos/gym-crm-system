@@ -12,8 +12,9 @@ import io.github.mrergos.gymcrm.util.UserUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import java.util.List;
@@ -27,6 +28,7 @@ public class TraineeServiceImpl implements TraineeService {
     private TrainerDao trainerDao;
     private UsernameGenerator usernameGenerator;
     private GymMetrics gymMetrics;
+    private PasswordEncoder passwordEncoder;
 
     @Autowired
     public void setTraineeDao(TraineeDao traineeDao) {
@@ -48,6 +50,11 @@ public class TraineeServiceImpl implements TraineeService {
         this.gymMetrics = gymMetrics;
     }
 
+    @Autowired
+    public void setPasswordEncoder(PasswordEncoder passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
+    }
+
     @Override
     @Transactional
     public Trainee createTraineeProfile(Trainee trainee) {
@@ -57,10 +64,9 @@ public class TraineeServiceImpl implements TraineeService {
         log.info("Creating trainee profile for {} {}", trainee.getFirstName(), trainee.getLastName());
 
         String username = usernameGenerator.generate(trainee.getFirstName(), trainee.getLastName());
+        String rawPassword = UserUtils.generatePassword();
 
-        String password = UserUtils.generatePassword();
-
-        trainee.setPassword(password);
+        trainee.setPassword(passwordEncoder.encode(rawPassword));
         trainee.setUsername(username);
         trainee.setActive(true);
 
@@ -68,6 +74,7 @@ public class TraineeServiceImpl implements TraineeService {
         gymMetrics.incrementTraineeRegistrations();
         log.info("Trainee profile created, id={} username={}", trainee.getId(), trainee.getUsername());
 
+        trainee.setPassword(rawPassword);
         return trainee;
     }
 
@@ -109,7 +116,7 @@ public class TraineeServiceImpl implements TraineeService {
                     return new EntityNotFoundException("Trainee not found with username: " + username);
                 });
 
-        trainee.setPassword(newPassword);
+        trainee.setPassword(passwordEncoder.encode(newPassword));
         traineeDao.save(trainee);
         log.info("Password changed for trainee, username={}", username);
     }
