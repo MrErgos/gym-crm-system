@@ -33,26 +33,39 @@ public class GymFacade {
         log.debug("GymFacade initialized with all three services");
     }
 
-    public Trainee createTraineeProfile(String firstName, String lastName, LocalDate dateOfBirth, String address) {
-        log.info("Facade: create trainee profile for {} {}",firstName,lastName);
+    public List<TrainingType> getAvailableTrainingTypes() {
+        log.debug("Facade: get available training types");
+        return trainerService.getAvailableTrainingTypes();
+    }
 
-        return traineeService.createTraineeProfile(firstName, lastName, dateOfBirth, address);
+    public Optional<TrainingType> getTrainingTypeById(Long id) {
+        log.debug("Facade: get training type by id={}", id);
+        return trainerService.getTrainingTypeById(id);
+    }
+
+    public Trainee createTraineeProfile(Trainee trainee) {
+        log.info("Facade: create trainee profile for {} {}", trainee.getFirstName(), trainee.getLastName());
+        return traineeService.createTraineeProfile(trainee);
     }
 
     public Trainee updateTraineeProfile(Trainee trainee) {
-        log.info("Facade: update trainee profile, id={}",trainee.getUserId());
-
+        log.info("Facade: update trainee profile, username={}", trainee.getUsername());
         return traineeService.updateTraineeProfile(trainee);
     }
 
-    public void deleteTraineeProfile(Long id) {
-        log.info("Facade: delete trainee profile, id={}",id);
-        traineeService.deleteTraineeProfile(id);
+    public void toggleTraineeActive(String traineeUsername) {
+        log.info("Facade: toggle trainee active status, username={}", traineeUsername);
+        traineeService.toggleActive(traineeUsername);
     }
 
-    public Optional<Trainee> getTraineeProfile(Long id) {
-        log.debug("Facade: get trainee profile, id={}", id);
-        return traineeService.getTraineeProfile(id);
+    public void deleteTraineeProfile(String traineeUsername) {
+        log.info("Facade: delete trainee profile, username={}", traineeUsername);
+        traineeService.deleteTraineeProfile(traineeUsername);
+    }
+
+    public Optional<Trainee> getTraineeProfile(String traineeUsername) {
+        log.debug("Facade: get trainee profile, username={}", traineeUsername);
+        return traineeService.getTraineeProfile(traineeUsername);
     }
 
     public List<Trainee> getAllTrainees() {
@@ -60,6 +73,20 @@ public class GymFacade {
         return traineeService.getAllTrainees();
     }
 
+    public List<Trainer> getTrainersNotAssigned(String traineeUsername) {
+        log.debug("Facade: get trainers not assigned to trainee, username={}", traineeUsername);
+        return traineeService.getTrainersNotAssigned(traineeUsername);
+    }
+
+    public List<Trainer> updateTraineeTrainers(String traineeUsername, List<String> trainerUsernames) {
+        log.info("Facade: update trainee's trainers list, username={}", traineeUsername);
+        return traineeService.updateTraineeTrainers(traineeUsername, trainerUsernames);
+    }
+
+    public Trainer createTrainerProfile(String firstName, String lastName, Long specializationId) {
+        log.info("Facade: create trainer profile for {} {}", firstName, lastName);
+        return trainerService.createTrainerProfile(firstName, lastName, specializationId);
+    }
 
     public Trainer createTrainerProfile(String firstName, String lastName, TrainingType specialization) {
         log.info("Facade: create trainer profile for {} {}", firstName, lastName);
@@ -67,20 +94,24 @@ public class GymFacade {
     }
 
     public Trainer updateTrainerProfile(Trainer trainer) {
-        log.info("Facade: update trainer profile, id={}", trainer.getUserId());
+        log.info("Facade: update trainer profile, username={}", trainer.getUsername());
         return trainerService.updateTrainerProfile(trainer);
     }
 
-    public Optional<Trainer> getTrainerProfile(Long id) {
-        log.debug("Facade: get trainer profile, id={}", id);
-        return trainerService.getTrainerProfile(id);
+    public void toggleTrainerActive(String trainerUsername) {
+        log.info("Facade: toggle trainer active status, username={}", trainerUsername);
+        trainerService.toggleActive(trainerUsername);
+    }
+
+    public Optional<Trainer> getTrainerProfile(String trainerUsername) {
+        log.debug("Facade: get trainer profile, username={}", trainerUsername);
+        return trainerService.getTrainerProfile(trainerUsername);
     }
 
     public List<Trainer> getAllTrainers() {
         log.debug("Facade: get all trainers");
         return trainerService.getAllTrainers();
     }
-
 
     public Training createTraining(Training training) {
         log.info("Facade: create training '{}'", training.getTrainingName());
@@ -95,5 +126,28 @@ public class GymFacade {
     public List<Training> getAllTrainings() {
         log.debug("Facade: get all trainings");
         return trainingService.getAllTrainings();
+    }
+
+    public List<Training> getTraineeTrainings(String traineeUsername,
+                                              LocalDate fromDate, LocalDate toDate,
+                                              String trainerName, String trainingTypeName) {
+        log.debug("Facade: get trainee trainings, username={}", traineeUsername);
+        return trainingService.getTraineeTrainings(traineeUsername, fromDate, toDate, trainerName, trainingTypeName);
+    }
+
+    public List<Training> getTrainerTrainings(String trainerUsername,
+                                              LocalDate fromDate, LocalDate toDate, String traineeName) {
+        log.debug("Facade: get trainer trainings, username={}", trainerUsername);
+        return trainingService.getTrainerTrainings(trainerUsername, fromDate, toDate, traineeName);
+    }
+
+    public void changePassword(String username, String newPassword) {
+        log.info("Facade: change password, username={}", username);
+
+        if (traineeService.existsByUsername(username)) {
+            traineeService.changePassword(username, newPassword);
+        } else {
+            trainerService.changePassword(username, newPassword);
+        }
     }
 }
