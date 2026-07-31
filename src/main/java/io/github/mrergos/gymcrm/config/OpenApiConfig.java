@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 public class OpenApiConfig {
 
     private static final String BASIC_AUTH_SCHEME_NAME = "basicAuth";
+    private static final String BEARER_AUTH_SCHEME_NAME = "bearerAuth";
 
     @Bean
     public OpenAPI gymCrmOpenApi() {
@@ -24,6 +25,12 @@ public class OpenApiConfig {
                                 new SecurityScheme()
                                         .name(BASIC_AUTH_SCHEME_NAME)
                                         .type(SecurityScheme.Type.HTTP)
-                                        .scheme("basic")));
+                                        .scheme("basic"))
+                        .addSecuritySchemes(BEARER_AUTH_SCHEME_NAME,
+                                new SecurityScheme()
+                                        .name(BEARER_AUTH_SCHEME_NAME)
+                                        .type(SecurityScheme.Type.HTTP)
+                                        .scheme("bearer")
+                                        .bearerFormat("JWT")));
     }
 }

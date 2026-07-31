@@ -17,7 +17,7 @@ INSERT INTO training_types (training_type_name) VALUES ('Cardio');
 
 
 INSERT INTO users (firstName, lastName, username, password, is_active)
-VALUES ('John', 'Doe', 'John.Doe', 'securepass1', true);
+VALUES ('John', 'Doe', 'John.Doe', '$2a$10$v8rWNEQOt79BAHMfGKPehuRFjoUiDO/I8pvSCEA.Ejko.JLG/1Z82', true);
 
 INSERT INTO trainees (user_id, date_of_birth, address)
 VALUES ((SELECT id FROM users WHERE username = 'John.Doe'), '1995-05-15', '123 Maple Street, Springfield');

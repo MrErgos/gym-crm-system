@@ -13,6 +13,14 @@ hibernate:
     auto: validate
   show_sql: false
 
+security:
+  jwt:
+    # No default here on purpose: startup must fail fast if the secret
+    # was not provided in the production environment.
+    secret: ${JWT_SECRET}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
 management:
   endpoint:
     health:
