@@ -2,13 +2,14 @@ package io.github.mrergos.gymcrm.controller;
 
 import io.github.mrergos.gymcrm.dto.request.RegisterTrainerRequest;
 import io.github.mrergos.gymcrm.dto.request.UpdateTrainerRequest;
-import io.github.mrergos.gymcrm.dto.response.CredentialsResponse;
-import io.github.mrergos.gymcrm.dto.response.TrainerResponse;
-import io.github.mrergos.gymcrm.dto.response.TrainingTypeResponse;
+import io.github.mrergos.gymcrm.dto.response.*;
 import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.entity.TrainingType;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
+import io.github.mrergos.gymcrm.exception.ServiceUnavailableException;
 import io.github.mrergos.gymcrm.facade.GymFacade;
+import io.github.mrergos.gymcrm.integration.WorkingHoursClient;
+import io.github.mrergos.gymcrm.integration.WorkingHoursGateway;
 import io.github.mrergos.gymcrm.mapper.TrainerMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,8 +26,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TrainerController tests")
@@ -38,8 +38,16 @@ class TrainerControllerTest {
     @Mock
     private GymFacade facade;
 
+    @Mock
+    private WorkingHoursGateway workingHoursGateway;
+
     @InjectMocks
     private TrainerController controller;
+
+    private YearSummaryResponse buildYearSummary() {
+        MonthSummaryResponse month = new MonthSummaryResponse(8, 180);
+        return new YearSummaryResponse(2026, List.of(month));
+    }
 
     @Test
     @DisplayName("registerTrainer: delegates to facade and returns credentials")
@@ -158,5 +166,54 @@ class TrainerControllerTest {
 
         //then
         assertEquals(0, response.size());
+    }
+
+    @Test
+    @DisplayName("getTrainerWorkload: returns summary from gateway")
+    void getTrainerWorkload_valid_shouldReturnGatewayResponse() {
+        //given
+        String username = "John.Doe";
+        TrainerWorkloadSummaryResponse expected = new TrainerWorkloadSummaryResponse(
+                username, "John", "Doe", true, List.of(buildYearSummary()));
+
+        when(workingHoursGateway.getWorkloadSummary(username)).thenReturn(expected);
+
+        //when
+        TrainerWorkloadSummaryResponse result = controller.getTrainerWorkload(username);
+
+        //then
+        assertEquals(expected, result);
+        verify(workingHoursGateway).getWorkloadSummary(username);
+        verifyNoInteractions(facade, trainerMapper);
+    }
+
+    @Test
+    @DisplayName("getTrainerWorkload: propagates EntityNotFoundException from gateway")
+    void getTrainerWorkload_notFound_shouldPropagateException() {
+        //given
+        String username = "Unknown.User";
+        when(workingHoursGateway.getWorkloadSummary(username))
+                .thenThrow(new EntityNotFoundException("No workload data found for trainer: " + username));
+
+        //when
+        //then
+        assertThrows(EntityNotFoundException.class,
+                () -> controller.getTrainerWorkload(username));
+        verify(workingHoursGateway).getWorkloadSummary(username);
+    }
+
+    @Test
+    @DisplayName("getTrainerWorkload: propagates ServiceUnavailableException from gateway")
+    void getTrainerWorkload_serviceDown_shouldPropagateException() {
+        //given
+        String username = "John.Doe";
+        when(workingHoursGateway.getWorkloadSummary(username))
+                .thenThrow(new ServiceUnavailableException("working-hours-service is currently unavailable"));
+
+        //when
+        //then
+        assertThrows(ServiceUnavailableException.class,
+                () -> controller.getTrainerWorkload(username));
+        verify(workingHoursGateway).getWorkloadSummary(username);
     }
 }

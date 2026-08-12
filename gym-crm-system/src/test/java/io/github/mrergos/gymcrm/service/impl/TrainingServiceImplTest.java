@@ -8,6 +8,7 @@ import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.entity.Training;
 import io.github.mrergos.gymcrm.entity.TrainingType;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
+import io.github.mrergos.gymcrm.integration.WorkingHoursGateway;
 import io.github.mrergos.gymcrm.metrics.GymMetrics;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,9 @@ class TrainingServiceImplTest {
 
     @Mock
     private GymMetrics gymMetrics;
+
+    @Mock
+    private WorkingHoursGateway workingHoursGateway;
 
     @InjectMocks
     private TrainingServiceImpl service;

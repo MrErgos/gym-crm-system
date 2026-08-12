@@ -2,9 +2,14 @@ package io.github.mrergos.gymcrm.service.impl;
 
 import io.github.mrergos.gymcrm.dao.TraineeDao;
 import io.github.mrergos.gymcrm.dao.TrainerDao;
+import io.github.mrergos.gymcrm.dao.TrainingDao;
 import io.github.mrergos.gymcrm.entity.Trainee;
 import io.github.mrergos.gymcrm.entity.Trainer;
+import io.github.mrergos.gymcrm.entity.Training;
+import io.github.mrergos.gymcrm.entity.TrainingType;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
+import io.github.mrergos.gymcrm.integration.WorkingHoursGateway;
+import io.github.mrergos.gymcrm.integration.dto.ActionType;
 import io.github.mrergos.gymcrm.metrics.GymMetrics;
 import io.github.mrergos.gymcrm.service.UsernameGenerator;
 import org.junit.jupiter.api.DisplayName;
@@ -42,6 +47,12 @@ class TraineeServiceImplTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private WorkingHoursGateway workingHoursGateway;
+
+    @Mock
+    private TrainingDao trainingDao;
+
     @InjectMocks
     private TraineeServiceImpl service;
 
@@ -53,6 +64,28 @@ class TraineeServiceImplTest {
         t.setUsername(firstName + "." + lastName);
         t.setPassword("validPassword");
         t.setActive(true);
+        return t;
+    }
+
+    private Trainer buildTrainer(Long id) {
+        Trainer t = new Trainer();
+        t.setId(id);
+        t.setFirstName("Jane");
+        t.setLastName("Smith");
+        t.setUsername("Jane.Smith");
+        t.setPassword("pass");
+        t.setSpecialization(new TrainingType("yoga"));
+        return t;
+    }
+
+    private Training buildTraining(Trainee trainee, Trainer trainer) {
+        Training t = new Training();
+        t.setTrainee(trainee);
+        t.setTrainer(trainer);
+        t.setTrainingName("Morning Yoga");
+        t.setTrainingType(new TrainingType("yoga"));
+        t.setTrainingDate(LocalDate.of(2024, 6, 1));
+        t.setTrainingDuration(60);
         return t;
     }
 
@@ -203,13 +236,21 @@ class TraineeServiceImplTest {
     void deleteTraineeProfile_existingUsername_shouldDelete() {
         //given
         Trainee trainee = buildTrainee(1L, "John", "Doe");
+        Trainer trainer = buildTrainer(2L);
+        Training training = buildTraining(trainee, trainer);
         when(traineeDao.findByUsername("John.Doe")).thenReturn(Optional.of(trainee));
+        when(trainingDao.findTraineeTrainings("John.Doe",
+                LocalDate.now().plusDays(1), null, null, null))
+                .thenReturn(List.of(training));
 
         //when
         service.deleteTraineeProfile("John.Doe");
 
         //then
         verify(traineeDao).delete(trainee);
+        verify(trainingDao).findTraineeTrainings("John.Doe",
+                LocalDate.now().plusDays(1), null, null, null);
+        verify(workingHoursGateway).notify(any(), eq(ActionType.DELETE));
     }
 
     @Test
