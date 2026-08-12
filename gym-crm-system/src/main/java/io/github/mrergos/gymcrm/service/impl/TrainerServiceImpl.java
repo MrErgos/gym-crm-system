@@ -88,7 +88,7 @@ public class TrainerServiceImpl implements TrainerService {
         trainer.setActive(true);
         trainer.setSpecialization(specialization);
 
-        Trainer saved = trainerDao.save(trainer);
+        Trainer saved = new Trainer(trainerDao.save(trainer));
         gymMetrics.incrementTrainerRegistrations();
         log.info("Trainer profile created: id={}, username={}", saved.getId(), saved.getUsername());
 

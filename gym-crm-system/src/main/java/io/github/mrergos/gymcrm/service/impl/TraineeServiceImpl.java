@@ -2,9 +2,13 @@ package io.github.mrergos.gymcrm.service.impl;
 
 import io.github.mrergos.gymcrm.dao.TraineeDao;
 import io.github.mrergos.gymcrm.dao.TrainerDao;
+import io.github.mrergos.gymcrm.dao.TrainingDao;
 import io.github.mrergos.gymcrm.entity.Trainee;
 import io.github.mrergos.gymcrm.entity.Trainer;
+import io.github.mrergos.gymcrm.entity.Training;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
+import io.github.mrergos.gymcrm.integration.WorkingHoursGateway;
+import io.github.mrergos.gymcrm.integration.dto.ActionType;
 import io.github.mrergos.gymcrm.metrics.GymMetrics;
 import io.github.mrergos.gymcrm.service.TraineeService;
 import io.github.mrergos.gymcrm.service.UsernameGenerator;
@@ -17,6 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.temporal.TemporalUnit;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,9 +33,11 @@ public class TraineeServiceImpl implements TraineeService {
 
     private TraineeDao traineeDao;
     private TrainerDao trainerDao;
+    private TrainingDao trainingDao;
     private UsernameGenerator usernameGenerator;
     private GymMetrics gymMetrics;
     private PasswordEncoder passwordEncoder;
+    private WorkingHoursGateway workingHoursGateway;
 
     @Autowired
     public void setTraineeDao(TraineeDao traineeDao) {
@@ -38,6 +47,11 @@ public class TraineeServiceImpl implements TraineeService {
     @Autowired
     public void setTrainerDao(TrainerDao trainerDao) {
         this.trainerDao = trainerDao;
+    }
+
+    @Autowired
+    public void setTrainingDao(TrainingDao trainingDao) {
+        this.trainingDao = trainingDao;
     }
 
     @Autowired
@@ -55,6 +69,11 @@ public class TraineeServiceImpl implements TraineeService {
         this.passwordEncoder = passwordEncoder;
     }
 
+    @Autowired
+    public void setWorkingHoursGateway(WorkingHoursGateway workingHoursGateway) {
+        this.workingHoursGateway = workingHoursGateway;
+    }
+
     @Override
     @Transactional
     public Trainee createTraineeProfile(Trainee trainee) {
@@ -70,7 +89,7 @@ public class TraineeServiceImpl implements TraineeService {
         trainee.setUsername(username);
         trainee.setActive(true);
 
-        trainee = traineeDao.save(trainee);
+        trainee = new Trainee(traineeDao.save(trainee));
         gymMetrics.incrementTraineeRegistrations();
         log.info("Trainee profile created, id={} username={}", trainee.getId(), trainee.getUsername());
 
@@ -147,8 +166,14 @@ public class TraineeServiceImpl implements TraineeService {
                     return new EntityNotFoundException("Trainee not found with username: " + username);
                 });
 
+        List<Training> traineeTrainings = trainingDao.findTraineeTrainings(username, LocalDate.now().plusDays(1), null, null, null);
+
         traineeDao.delete(trainee);
         log.info("Trainee profile deleted, username={}", username);
+
+        for (Training training : traineeTrainings) {
+            workingHoursGateway.notify(training, ActionType.DELETE);
+        }
     }
 
     @Override

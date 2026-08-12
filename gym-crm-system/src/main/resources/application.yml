@@ -7,6 +7,14 @@ spring:
     init:
       mode: always
       data-locations: classpath:data.sql
+  cloud:
+    openfeign:
+      client:
+        config:
+          working-hours-service:
+            connect-timeout: 2000
+            read-timeout: 2500
+            logger-level: basic
 
 hibernate:
   show_sql: false
@@ -43,3 +51,19 @@ management:
 logging:
   level:
     io.github.mrergos.gymcrm: INFO
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      workingHoursService:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+  timelimiter:
+    instances:
+      workingHoursService:
+        timeout-duration: 3s
+        cancel-running-future: true

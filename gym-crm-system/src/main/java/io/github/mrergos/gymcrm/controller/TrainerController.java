@@ -4,11 +4,13 @@ import io.github.mrergos.gymcrm.dto.request.RegisterTrainerRequest;
 import io.github.mrergos.gymcrm.dto.request.UpdateTrainerRequest;
 import io.github.mrergos.gymcrm.dto.response.CredentialsResponse;
 import io.github.mrergos.gymcrm.dto.response.TrainerResponse;
+import io.github.mrergos.gymcrm.dto.response.TrainerWorkloadSummaryResponse;
 import io.github.mrergos.gymcrm.dto.response.TrainingTypeResponse;
 import io.github.mrergos.gymcrm.entity.Trainer;
 import io.github.mrergos.gymcrm.entity.TrainingType;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
 import io.github.mrergos.gymcrm.facade.GymFacade;
+import io.github.mrergos.gymcrm.integration.WorkingHoursGateway;
 import io.github.mrergos.gymcrm.mapper.TrainerMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -35,10 +37,12 @@ public class TrainerController {
 
     private final TrainerMapper trainerMapper;
     private final GymFacade facade;
+    private final WorkingHoursGateway workingHoursGateway;
 
-    public TrainerController(TrainerMapper trainerMapper, GymFacade facade) {
+    public TrainerController(TrainerMapper trainerMapper, GymFacade facade, WorkingHoursGateway workingHoursGateway) {
         this.trainerMapper = trainerMapper;
         this.facade = facade;
+        this.workingHoursGateway = workingHoursGateway;
     }
 
     @PostMapping
@@ -130,6 +134,29 @@ public class TrainerController {
 
         log.info("Active status toggled for trainer: username={}", username);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{username}/workload")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(
+            summary = "Get a trainer's monthly training-hours summary",
+            description = "Proxies to the working-hours-service and returns the trainer's full training-hours " +
+                    "summary, grouped by year and month, as accumulated from previously submitted workload events."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Summary found"),
+            @ApiResponse(responseCode = "401", description = "Invalid or missing access token", content = @Content),
+            @ApiResponse(responseCode = "404", description = "No workload data found for this trainer", content = @Content),
+            @ApiResponse(responseCode = "503", description = "working-hours-service is currently unavailable", content = @Content)
+    })
+    public TrainerWorkloadSummaryResponse getTrainerWorkload(
+            @Parameter(description = "Username of the trainer") @PathVariable("username") String username) {
+        log.debug("Fetching workload summary for trainer: username={}", username);
+
+        TrainerWorkloadSummaryResponse response = workingHoursGateway.getWorkloadSummary(username);
+
+        log.debug("Workload summary returned for trainer: username={}, years={}", username, response.years().size());
+        return response;
     }
 
     @GetMapping("/training-types")
