@@ -1,22 +1,26 @@
 package io.github.mrergos.gymcrm.integration;
 
+import io.github.mrergos.gymcrm.config.JmsQueueProperties;
 import io.github.mrergos.gymcrm.dto.response.TrainerWorkloadSummaryResponse;
 import io.github.mrergos.gymcrm.entity.Training;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
 import io.github.mrergos.gymcrm.exception.ServiceUnavailableException;
 import io.github.mrergos.gymcrm.integration.dto.ActionType;
 import io.github.mrergos.gymcrm.integration.dto.TrainerWorkloadRequest;
-import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
-import feign.FeignException;
+import io.github.mrergos.gymcrm.integration.dto.WorkloadSummaryReply;
+import io.github.mrergos.gymcrm.integration.dto.WorkloadSummaryRequest;
+import jakarta.jms.JMSException;
+import jakarta.jms.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.jms.annotation.JmsListener;
+import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 @Component
@@ -25,13 +29,15 @@ public class WorkingHoursGateway {
     private static final Logger log = LoggerFactory.getLogger(WorkingHoursGateway.class);
     private static final String TRANSACTION_ID_MDC_KEY = "transactionId";
 
-    private final WorkingHoursResilientClient resilientClient;
-    private final ServiceTokenProvider serviceTokenProvider;
+    private final JmsTemplate jmsTemplate;
+    private final JmsQueueProperties queueProperties;
+    private final PendingReplyRegistry pendingReplyRegistry;
 
-    public WorkingHoursGateway(WorkingHoursResilientClient resilientClient,
-                               ServiceTokenProvider serviceTokenProvider) {
-        this.resilientClient = resilientClient;
-        this.serviceTokenProvider = serviceTokenProvider;
+    public WorkingHoursGateway(JmsTemplate jmsTemplate, JmsQueueProperties queueProperties,
+                               PendingReplyRegistry pendingReplyRegistry) {
+        this.jmsTemplate = jmsTemplate;
+        this.queueProperties = queueProperties;
+        this.pendingReplyRegistry = pendingReplyRegistry;
     }
 
     public void notify(Training training, ActionType actionType) {
@@ -39,86 +45,86 @@ public class WorkingHoursGateway {
         try {
             TrainerWorkloadRequest request = toRequest(training, actionType);
 
-            log.info("Submitting workload event to working-hours-service: trainer={}, action={}, txId={}",
+            log.info("Publishing workload event to working-hours-service: trainer={}, action={}, txId={}",
                     request.trainerUsername(), actionType, transactionId);
 
-            resilientClient.submitWorkload(serviceTokenProvider.bearerToken(), transactionId, request)
-                    .whenComplete((result, throwable) -> {
-                        if (throwable == null) {
-                            log.info("Workload event accepted by working-hours-service: trainer={}, action={}, txId={}",
-                                    request.trainerUsername(), actionType, transactionId);
-                        } else {
-                            logFailure(request.trainerUsername(), actionType, transactionId, unwrap(throwable));
-                        }
-                    });
+            jmsTemplate.convertAndSend(queueProperties.getQueues().getWorkloadEvents(), request, message -> {
+                message.setStringProperty("transactionId", transactionId);
+                return message;
+            });
+
+            log.info("Workload event published: trainer={}, action={}, txId={}",
+                    request.trainerUsername(), actionType, transactionId);
         } catch (Exception e) {
-            log.error("Unexpected error while notifying working-hours-service, skipping: " +
+            log.error("Failed to publish workload event, skipping: " +
                     "action={}, txId={}, error={}", actionType, transactionId, e.toString());
         }
     }
 
     public TrainerWorkloadSummaryResponse getWorkloadSummary(String username) {
         String transactionId = currentOrNewTransactionId();
-        log.info("Requesting workload summary from working-hours-service: trainer={}, txId={}",
-                username, transactionId);
+        PendingReplyRegistry.Registration registration = pendingReplyRegistry.register();
+
+        log.info("Requesting workload summary from working-hours-service: trainer={}, correlationId={}, txId={}",
+                username, registration.correlationId(), transactionId);
 
         try {
-            TrainerWorkloadSummaryResponse response = resilientClient
-                    .getWorkload(serviceTokenProvider.bearerToken(), transactionId, username)
-                    .get();
+            publishSummaryRequest(username, registration.correlationId(), transactionId);
 
-            log.info("Workload summary received from working-hours-service: trainer={}, txId={}",
-                    username, transactionId);
-            return response;
+            WorkloadSummaryReply reply = registration.future()
+                    .get(queueProperties.getReplyTimeoutMs(), TimeUnit.MILLISECONDS);
+            return unwrap(username, reply);
         } catch (ExecutionException e) {
-            throw mapWorkloadSummaryFailure(username, transactionId, unwrap(e));
+            throw mapWorkloadSummaryFailure(username, transactionId, e.getCause() != null ? e.getCause() : e);
+        } catch (TimeoutException e) {
+            log.warn("Timed out waiting for working-hours-service workload summary reply: trainer={}, txId={}",
+                    username, transactionId);
+            throw new ServiceUnavailableException(
+                    "working-hours-service did not respond in time, please try again later");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new ServiceUnavailableException(
                     "Interrupted while waiting for working-hours-service response, trainer=" + username, e);
+        } catch (JMSException e) {
+            throw mapWorkloadSummaryFailure(username, transactionId, e);
+        } finally {
+            pendingReplyRegistry.remove(registration.correlationId());
         }
     }
 
-    private RuntimeException mapWorkloadSummaryFailure(String username, String transactionId, Throwable throwable) {
-        if (throwable instanceof FeignException.NotFound) {
-            log.warn("No workload data found for trainer in working-hours-service: trainer={}, txId={}",
-                    username, transactionId);
-            return new EntityNotFoundException("No workload data found for trainer: " + username);
+    private void publishSummaryRequest(String username, String correlationId, String transactionId) throws JMSException {
+        String replyQueue = queueProperties.getQueues().getWorkloadReplyPrefix();
+
+        jmsTemplate.send(queueProperties.getQueues().getWorkloadRequest(), session -> {
+            Message message = jmsTemplate.getMessageConverter()
+                    .toMessage(new WorkloadSummaryRequest(username), session);
+            message.setJMSCorrelationID(correlationId);
+            message.setJMSReplyTo(session.createQueue(replyQueue));
+            message.setStringProperty("transactionId", transactionId);
+            return message;
+        });
+    }
+
+    @JmsListener(destination = "${jms.queues.workload-reply-prefix}",
+            containerFactory = "jmsListenerContainerFactory")
+    public void onSummaryReply(WorkloadSummaryReply reply, Message rawMessage) throws JMSException {
+        pendingReplyRegistry.complete(rawMessage.getJMSCorrelationID(), reply);
+    }
+
+    private TrainerWorkloadSummaryResponse unwrap(String username, WorkloadSummaryReply reply) {
+        if (!reply.found()) {
+            log.warn("No workload data found for trainer in working-hours-service: trainer={}", username);
+            throw new EntityNotFoundException("No workload data found for trainer: " + username);
         }
-        if (throwable instanceof CallNotPermittedException) {
-            log.warn("Circuit open for working-hours-service, cannot fetch workload summary: trainer={}, txId={}",
-                    username, transactionId);
-            return new ServiceUnavailableException(
-                    "working-hours-service is currently unavailable, please try again later");
-        }
-        if (throwable instanceof TimeoutException) {
-            log.warn("Timed out calling working-hours-service for workload summary: trainer={}, txId={}",
-                    username, transactionId);
-            return new ServiceUnavailableException(
-                    "working-hours-service did not respond in time, please try again later");
-        }
+        log.info("Workload summary received from working-hours-service: trainer={}", username);
+        return reply.summary();
+    }
+
+    private ServiceUnavailableException mapWorkloadSummaryFailure(String username, String transactionId, Throwable throwable) {
         log.error("Failed to fetch workload summary from working-hours-service: trainer={}, txId={}, error={}",
                 username, transactionId, throwable.toString());
         return new ServiceUnavailableException(
                 "working-hours-service is currently unavailable, please try again later", throwable);
-    }
-
-    private void logFailure(String trainerUsername, ActionType actionType, String transactionId, Throwable throwable) {
-        if (throwable instanceof CallNotPermittedException) {
-            log.warn("Circuit open for working-hours-service, skipping workload notification: " +
-                    "trainer={}, action={}, txId={}", trainerUsername, actionType, transactionId);
-        } else if (throwable instanceof TimeoutException) {
-            log.warn("Timed out calling working-hours-service, skipping workload notification: " +
-                    "trainer={}, action={}, txId={}", trainerUsername, actionType, transactionId);
-        } else {
-            log.error("Failed to notify working-hours-service, skipping workload notification: " +
-                            "trainer={}, action={}, txId={}, error={}",
-                    trainerUsername, actionType, transactionId, throwable.toString());
-        }
-    }
-
-    private Throwable unwrap(Throwable throwable) {
-        return throwable.getCause() != null ? throwable.getCause() : throwable;
     }
 
     private TrainerWorkloadRequest toRequest(Training training, ActionType actionType) {
