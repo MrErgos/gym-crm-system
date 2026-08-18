@@ -8,7 +8,6 @@ import io.github.mrergos.gymcrm.entity.TrainingType;
 import io.github.mrergos.gymcrm.exception.EntityNotFoundException;
 import io.github.mrergos.gymcrm.exception.ServiceUnavailableException;
 import io.github.mrergos.gymcrm.facade.GymFacade;
-import io.github.mrergos.gymcrm.integration.WorkingHoursClient;
 import io.github.mrergos.gymcrm.integration.WorkingHoursGateway;
 import io.github.mrergos.gymcrm.mapper.TrainerMapper;
 import org.junit.jupiter.api.DisplayName;
