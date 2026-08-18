@@ -14,6 +14,7 @@ import jakarta.jms.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.jms.JmsException;
 import org.springframework.jms.annotation.JmsListener;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Component;
@@ -85,14 +86,14 @@ public class WorkingHoursGateway {
             Thread.currentThread().interrupt();
             throw new ServiceUnavailableException(
                     "Interrupted while waiting for working-hours-service response, trainer=" + username, e);
-        } catch (JMSException e) {
+        } catch (JmsException e) {
             throw mapWorkloadSummaryFailure(username, transactionId, e);
         } finally {
             pendingReplyRegistry.remove(registration.correlationId());
         }
     }
 
-    private void publishSummaryRequest(String username, String correlationId, String transactionId) throws JMSException {
+    private void publishSummaryRequest(String username, String correlationId, String transactionId) throws JmsException {
         String replyQueue = queueProperties.getQueues().getWorkloadReplyPrefix();
 
         jmsTemplate.send(queueProperties.getQueues().getWorkloadRequest(), session -> {
