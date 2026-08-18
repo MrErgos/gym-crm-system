@@ -11,3 +11,8 @@ services:
       ARTEMIS_USER: artemis
       ARTEMIS_PASSWORD: artemis
       ANONYMOUS_LOGIN: "false"
+    volumes:
+      - artemis-data:/var/lib/artemis-instance
+    restart: unless-stopped
+volumes:
+  artemis-data:

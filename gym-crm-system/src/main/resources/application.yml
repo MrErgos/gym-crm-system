@@ -7,14 +7,6 @@ spring:
     init:
       mode: always
       data-locations: classpath:data.sql
-  cloud:
-    openfeign:
-      client:
-        config:
-          working-hours-service:
-            connect-timeout: 2000
-            read-timeout: 2500
-            logger-level: basic
   artemis:
     mode: native
     broker-url: ${ARTEMIS_BROKER_URL:tcp://localhost:61616}
@@ -23,6 +15,9 @@ spring:
   jms:
     template:
       delivery-mode: persistent
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
 
 hibernate:
   show_sql: false
