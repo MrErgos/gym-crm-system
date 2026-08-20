@@ -4,13 +4,8 @@ server:
 spring:
   application:
     name: working-hours-service
-
-  datasource:
-    url: jdbc:h2:mem:workingHoursDb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
   jpa:
     hibernate:
       ddl-auto: update
@@ -19,11 +14,6 @@ spring:
       hibernate:
         format_sql: true
     open-in-view: false
-  artemis:
-    mode: native
-    broker-url: ${ARTEMIS_BROKER_URL:tcp://localhost:61616}
-    user: ${ARTEMIS_USER:artemis}
-    password: ${ARTEMIS_PASSWORD:artemis}
 
 eureka:
   client:
@@ -60,16 +50,4 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%X{transactionId}] %-5level %logger{36} - %msg%n"
   level:
-    io.github.mrergos.workinghours: DEBUG
-    web: debug
-
-jms:
-  queues:
-    workload-events: workload.events
-    workload-events-invalid: workload.events.invalid.dlq
-    workload-request: workload.summary.request
-  listener:
-    concurrency: "3-10"
-
-
-
+    io.github.mrergos.workinghours: INFO

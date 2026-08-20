@@ -1,27 +1,22 @@
 spring:
   datasource:
-    url: jdbc:postgresql://stg-db-host:5432/gymcrm_stg
+    url: jdbc:postgresql://stg-db-host:5432/workinghours_stg
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 15
-      minimum-idle: 5
+  jpa:
+    hibernate:
+      ddl-auto: validate
   artemis:
     mode: native
     broker-url: ${ARTEMIS_BROKER_URL:tcp://stg-artemis-host:61616}
     user: ${ARTEMIS_USER:artemis}
     password: ${ARTEMIS_PASSWORD}
 
-hibernate:
-  hbm2ddl:
-    auto: validate
-  show_sql: false
-
 jms:
   queues:
     workload-events: stg.workload.events
     workload-events-invalid: stg.workload.events.invalid.dlq
     workload-request: stg.workload.summary.request
-    workload-reply-prefix: stg.workload.summary.reply
-  reply-timeout-ms: ${WORKLOAD_REPLY_TIMEOUT_MS:5000}
+  listener:
+    concurrency: "5-20"

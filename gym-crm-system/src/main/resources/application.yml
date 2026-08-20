@@ -7,11 +7,6 @@ spring:
     init:
       mode: always
       data-locations: classpath:data.sql
-  artemis:
-    mode: native
-    broker-url: ${ARTEMIS_BROKER_URL:tcp://localhost:61616}
-    user: ${ARTEMIS_USER:artemis}
-    password: ${ARTEMIS_PASSWORD:artemis}
   jms:
     template:
       delivery-mode: persistent
@@ -54,11 +49,3 @@ management:
 logging:
   level:
     io.github.mrergos.gymcrm: INFO
-
-jms:
-  queues:
-    workload-events: workload.events
-    workload-events-invalid: workload.events.invalid.dlq
-    workload-request: workload.summary.request
-    workload-reply-prefix: workload.summary.reply
-  reply-timeout-ms: ${WORKLOAD_REPLY_TIMEOUT_MS:5000}

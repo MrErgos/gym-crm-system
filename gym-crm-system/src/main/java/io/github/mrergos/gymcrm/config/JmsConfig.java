@@ -50,12 +50,15 @@ public class JmsConfig {
     }
 
     @Bean
-    public DefaultJmsListenerContainerFactory jmsListenerContainerFactory(@Qualifier("jmsConnectionFactory") ConnectionFactory connectionFactory,
-                                                                          MessageConverter jacksonJmsMessageConverter) {
+    public DefaultJmsListenerContainerFactory jmsListenerContainerFactory(
+            @Qualifier("jmsConnectionFactory") ConnectionFactory connectionFactory,
+            MessageConverter jacksonJmsMessageConverter,
+            @Value("${jms.listener.concurrency:1-1}") String concurrency) {
         DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(jacksonJmsMessageConverter);
         factory.setSessionTransacted(true);
+        factory.setConcurrency(concurrency);
         return factory;
     }
 }

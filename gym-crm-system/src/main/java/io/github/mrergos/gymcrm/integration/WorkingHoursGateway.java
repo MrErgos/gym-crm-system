@@ -33,12 +33,15 @@ public class WorkingHoursGateway {
     private final JmsTemplate jmsTemplate;
     private final JmsQueueProperties queueProperties;
     private final PendingReplyRegistry pendingReplyRegistry;
+    private final InstanceReplyQueueNameProvider replyQueueNameProvider;
 
     public WorkingHoursGateway(JmsTemplate jmsTemplate, JmsQueueProperties queueProperties,
-                               PendingReplyRegistry pendingReplyRegistry) {
+                               PendingReplyRegistry pendingReplyRegistry,
+                               InstanceReplyQueueNameProvider replyQueueNameProvider) {
         this.jmsTemplate = jmsTemplate;
         this.queueProperties = queueProperties;
         this.pendingReplyRegistry = pendingReplyRegistry;
+        this.replyQueueNameProvider = replyQueueNameProvider;
     }
 
     public void notify(Training training, ActionType actionType) {
@@ -94,22 +97,16 @@ public class WorkingHoursGateway {
     }
 
     private void publishSummaryRequest(String username, String correlationId, String transactionId) throws JmsException {
-        String replyQueue = queueProperties.getQueues().getWorkloadReplyPrefix();
+        String replyQueueName = replyQueueNameProvider.getReplyQueueName();
 
         jmsTemplate.send(queueProperties.getQueues().getWorkloadRequest(), session -> {
             Message message = jmsTemplate.getMessageConverter()
                     .toMessage(new WorkloadSummaryRequest(username), session);
             message.setJMSCorrelationID(correlationId);
-            message.setJMSReplyTo(session.createQueue(replyQueue));
+            message.setJMSReplyTo(session.createQueue(replyQueueName));
             message.setStringProperty("transactionId", transactionId);
             return message;
         });
-    }
-
-    @JmsListener(destination = "${jms.queues.workload-reply-prefix}",
-            containerFactory = "jmsListenerContainerFactory")
-    public void onSummaryReply(WorkloadSummaryReply reply, Message rawMessage) throws JMSException {
-        pendingReplyRegistry.complete(rawMessage.getJMSCorrelationID(), reply);
     }
 
     private TrainerWorkloadSummaryResponse unwrap(String username, WorkloadSummaryReply reply) {
