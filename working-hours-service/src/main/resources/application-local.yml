@@ -1,9 +1,6 @@
 spring:
-  datasource:
-    url: jdbc:h2:mem:workingHoursDb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+  mongodb:
+    uri: ${MONGO_URI:mongodb://localhost:27017/workinghours_local}
   artemis:
     mode: native
     broker-url: ${ARTEMIS_BROKER_URL:tcp://localhost:61616}

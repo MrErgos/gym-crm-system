@@ -1,9 +1,6 @@
 spring:
-  datasource:
-    url: jdbc:postgresql://dev-db-host:5432/workinghours_dev
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
+  mongodb:
+    uri: ${MONGO_URI:mongodb://dev_db_host:27017/workinghours_dev}
   jpa:
     hibernate:
       ddl-auto: update

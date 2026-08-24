@@ -1,9 +1,6 @@
 spring:
-  datasource:
-    url: jdbc:postgresql://stg-db-host:5432/workinghours_stg
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
+  mongodb:
+    uri: ${MONGO_URI}
   jpa:
     hibernate:
       ddl-auto: validate
