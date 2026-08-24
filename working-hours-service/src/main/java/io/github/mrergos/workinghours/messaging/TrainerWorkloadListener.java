@@ -5,19 +5,25 @@ import io.github.mrergos.workinghours.config.JmsQueueProperties;
 import io.github.mrergos.workinghours.dto.request.TrainerWorkloadRequest;
 import io.github.mrergos.workinghours.messaging.dto.InvalidMessageInfo;
 import io.github.mrergos.workinghours.service.TrainerWorkloadService;
+import jakarta.jms.JMSException;
+import jakarta.jms.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.jms.annotation.JmsListener;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 public class TrainerWorkloadListener {
 
     private static final Logger log = LoggerFactory.getLogger(TrainerWorkloadListener.class);
+    private static final String TRANSACTION_ID_MDC_KEY = "transactionId";
+    private static final String TRANSACTION_ID_JMS_PROPERTY = "transactionId";
 
     private final TrainerWorkloadService trainerWorkloadService;
     private final WorkloadMessageValidator validator;
@@ -39,21 +45,27 @@ public class TrainerWorkloadListener {
 
     @JmsListener(destination = "${jms.queues.workload-events}",
             containerFactory = "jmsListenerContainerFactory")
-    public void onWorkloadEvent(TrainerWorkloadRequest request) {
-        List<String> validationErrors = validator.validate(request);
+    public void onWorkloadEvent(TrainerWorkloadRequest request, Message rawMessage) throws JMSException {
+        String transactionId = resolveTransactionId(rawMessage);
+        MDC.put(TRANSACTION_ID_MDC_KEY, transactionId);
+        try {
+            List<String> validationErrors = validator.validate(request);
 
-        if (!validationErrors.isEmpty()) {
-            log.warn("Rejecting workload event with missing required information, errors={}", validationErrors);
-            sendToInvalidMessageQueue(request, validationErrors);
-            return;
-        }
+            if (!validationErrors.isEmpty()) {
+                log.warn("Rejecting workload event with missing required information, errors={}", validationErrors);
+                sendToInvalidMessageQueue(request, validationErrors);
+                return;
+            }
 
-        log.info("Received workload event: trainer={}, action={}, date={}, duration={}min",
+            log.info("Received workload event: trainer={}, action={}, date={}, duration={}min",
                 request.trainerUsername(), request.actionType(), request.trainingDate(), request.trainingDuration());
 
-        trainerWorkloadService.applyWorkload(request);
+            trainerWorkloadService.applyWorkload(request);
 
-        log.info("Workload event applied successfully for trainer={}", request.trainerUsername());
+            log.info("Workload event applied successfully for trainer={}", request.trainerUsername());
+        } finally {
+            MDC.remove(TRANSACTION_ID_MDC_KEY);
+        }
     }
 
     private void sendToInvalidMessageQueue(TrainerWorkloadRequest request, List<String> validationErrors) {
@@ -76,5 +88,10 @@ public class TrainerWorkloadListener {
             log.debug("Could not serialize invalid message payload for DLQ, falling back to toString()", e);
             return String.valueOf(request);
         }
+    }
+
+    private String resolveTransactionId(Message rawMessage) throws JMSException {
+        String incoming = rawMessage.getStringProperty(TRANSACTION_ID_JMS_PROPERTY);
+        return (incoming != null && !incoming.isBlank()) ? incoming : UUID.randomUUID().toString();
     }
 }
