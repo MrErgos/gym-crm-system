@@ -45,11 +45,16 @@ import static org.mockito.Mockito.*;
 @DisplayName("WorkingHoursGateway tests")
 class WorkingHoursGatewayTest {
 
+    private static final String REPLY_QUEUE_NAME = "workload.summary.reply.instance-abc123";
+
     @Mock
     private JmsTemplate jmsTemplate;
 
     @Mock
     private PendingReplyRegistry pendingReplyRegistry;
+
+    @Mock
+    private InstanceReplyQueueNameProvider replyQueueNameProvider;
 
     private JmsQueueProperties queueProperties;
 
@@ -65,7 +70,7 @@ class WorkingHoursGatewayTest {
         queueProperties.setQueues(queues);
         queueProperties.setReplyTimeoutMs(replyTimeoutMs);
 
-        gateway = new WorkingHoursGateway(jmsTemplate, queueProperties, pendingReplyRegistry);
+        gateway = new WorkingHoursGateway(jmsTemplate, queueProperties, pendingReplyRegistry, replyQueueNameProvider);
     }
 
     private Trainer buildTrainer() {
@@ -206,6 +211,8 @@ class WorkingHoursGatewayTest {
     void getWorkloadSummary_replyFound_shouldReturnSummary() throws JMSException {
         //given
         initGateway(5000L);
+        when(replyQueueNameProvider.getReplyQueueName()).thenReturn(REPLY_QUEUE_NAME);
+
         String username = "Jane.Smith";
         TrainerWorkloadSummaryResponse expected = new TrainerWorkloadSummaryResponse(
                 username, "Jane", "Smith", true, List.of());
@@ -218,7 +225,7 @@ class WorkingHoursGatewayTest {
 
         Session session = mock(Session.class);
         Queue replyQueue = mock(Queue.class);
-        when(session.createQueue("workload.summary.reply")).thenReturn(replyQueue);
+        when(session.createQueue(REPLY_QUEUE_NAME)).thenReturn(replyQueue);
 
         MessageConverter converter = mock(MessageConverter.class);
         Message message = mock(Message.class);
@@ -247,6 +254,8 @@ class WorkingHoursGatewayTest {
     void getWorkloadSummary_replyNotFound_shouldThrowEntityNotFoundException() {
         //given
         initGateway(5000L);
+        when(replyQueueNameProvider.getReplyQueueName()).thenReturn(REPLY_QUEUE_NAME);
+
         String username = "Unknown.User";
         CompletableFuture<WorkloadSummaryReply> future =
                 CompletableFuture.completedFuture(WorkloadSummaryReply.notFound("No workload data found"));
@@ -263,6 +272,8 @@ class WorkingHoursGatewayTest {
     void getWorkloadSummary_timeout_shouldThrowServiceUnavailableException() {
         //given
         initGateway(50L);
+        when(replyQueueNameProvider.getReplyQueueName()).thenReturn(REPLY_QUEUE_NAME);
+
         String username = "Jane.Smith";
         CompletableFuture<WorkloadSummaryReply> neverCompletes = new CompletableFuture<>();
         when(pendingReplyRegistry.register())
@@ -278,6 +289,8 @@ class WorkingHoursGatewayTest {
     void getWorkloadSummary_unknownFailure_shouldThrowServiceUnavailableException() {
         //given
         initGateway(5000L);
+        when(replyQueueNameProvider.getReplyQueueName()).thenReturn(REPLY_QUEUE_NAME);
+
         String username = "Jane.Smith";
         RuntimeException cause = new RuntimeException("unexpected");
         CompletableFuture<WorkloadSummaryReply> failedFuture = new CompletableFuture<>();
@@ -297,6 +310,8 @@ class WorkingHoursGatewayTest {
     void getWorkloadSummary_interrupted_shouldThrowServiceUnavailableExceptionAndPreserveInterruptFlag() {
         //given
         initGateway(5000L);
+        when(replyQueueNameProvider.getReplyQueueName()).thenReturn(REPLY_QUEUE_NAME);
+
         String username = "Jane.Smith";
 
         CompletableFuture<WorkloadSummaryReply> interruptingFuture = mock(CompletableFuture.class);
@@ -325,6 +340,8 @@ class WorkingHoursGatewayTest {
     void getWorkloadSummary_sendThrowsJmsException_shouldThrowServiceUnavailableExceptionAndRemoveRegistration() {
         //given
         initGateway(5000L);
+        when(replyQueueNameProvider.getReplyQueueName()).thenReturn(REPLY_QUEUE_NAME);
+
         String username = "Jane.Smith";
         CompletableFuture<WorkloadSummaryReply> future = new CompletableFuture<>();
         when(pendingReplyRegistry.register())
@@ -337,39 +354,5 @@ class WorkingHoursGatewayTest {
         //then
         assertThrows(ServiceUnavailableException.class, () -> gateway.getWorkloadSummary(username));
         verify(pendingReplyRegistry).remove("corr-6");
-    }
-
-    @Test
-    @DisplayName("onSummaryReply: delegates completion to the pending reply registry using the message correlation id")
-    void onSummaryReply_shouldDelegateToRegistryComplete() throws JMSException {
-        //given
-        initGateway(5000L);
-        Message message = mock(Message.class);
-        when(message.getJMSCorrelationID()).thenReturn("corr-7");
-        WorkloadSummaryReply reply = WorkloadSummaryReply.of(
-                new TrainerWorkloadSummaryResponse("Jane.Smith", "Jane", "Smith", true, List.of()));
-
-        //when
-        gateway.onSummaryReply(reply, message);
-
-        //then
-        verify(pendingReplyRegistry).complete("corr-7", reply);
-    }
-
-    @Test
-    @DisplayName("onSummaryReply: still delegates to registry even when correlation id is null (registry decides how to handle it)")
-    void onSummaryReply_nullCorrelationId_shouldStillDelegateToRegistry() throws JMSException {
-        //given
-        initGateway(5000L);
-        Message message = mock(Message.class);
-        when(message.getJMSCorrelationID()).thenReturn(null);
-        WorkloadSummaryReply reply = WorkloadSummaryReply.notFound("not found");
-
-        //when
-        gateway.onSummaryReply(reply, message);
-
-        //then
-        verify(pendingReplyRegistry).complete(null, reply);
-        verify(jmsTemplate, never()).convertAndSend(anyString(), any(), any(MessagePostProcessor.class));
     }
 }
