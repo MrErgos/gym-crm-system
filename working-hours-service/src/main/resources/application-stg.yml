@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://stg-db-host:5432/workinghours_stg
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  artemis:
+    mode: native
+    broker-url: ${ARTEMIS_BROKER_URL:tcp://stg-artemis-host:61616}
+    user: ${ARTEMIS_USER:artemis}
+    password: ${ARTEMIS_PASSWORD}
+
+jms:
+  queues:
+    workload-events: stg.workload.events
+    workload-events-invalid: stg.workload.events.invalid.dlq
+    workload-request: stg.workload.summary.request
+  listener:
+    concurrency: "5-20"
