@@ -1,0 +1,27 @@
+spring:
+  mongodb:
+    uri: ${MONGO_URI}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  artemis:
+    mode: native
+    broker-url: ${ARTEMIS_BROKER_URL}
+    user: ${ARTEMIS_USER}
+    password: ${ARTEMIS_PASSWORD}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+
+jms:
+  queues:
+    workload-events: prod.workload.events
+    workload-events-invalid: prod.workload.events.invalid.dlq
+    workload-request: prod.workload.summary.request
+  listener:
+    concurrency: "10-30"
+
+logging:
+  level:
+    io.github.mrergos.workinghours: WARN
