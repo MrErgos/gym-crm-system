@@ -7,6 +7,8 @@ import io.github.mrergos.workinghours.dto.request.TrainerWorkloadRequest;
 import io.github.mrergos.workinghours.entity.ActionType;
 import io.github.mrergos.workinghours.messaging.dto.InvalidMessageInfo;
 import io.github.mrergos.workinghours.service.TrainerWorkloadService;
+import jakarta.jms.JMSException;
+import jakarta.jms.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,9 +24,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TrainerWorkloadListener tests")
@@ -52,6 +52,12 @@ class TrainerWorkloadListenerTest {
                 LocalDate.of(2026, 8, 1), 60, ActionType.ADD);
     }
 
+    private Message buildRawMessage(String transactionId) throws JMSException {
+        Message rawMessage = mock(Message.class);
+        when(rawMessage.getStringProperty("transactionId")).thenReturn(transactionId);
+        return rawMessage;
+    }
+
     @BeforeEach
     void setUp() {
         queueProperties = new JmsQueueProperties();
@@ -66,13 +72,14 @@ class TrainerWorkloadListenerTest {
 
     @Test
     @DisplayName("onWorkloadEvent: delegates to service and does not touch the DLQ when the message is valid")
-    void onWorkloadEvent_validRequest_shouldDelegateToService() {
+    void onWorkloadEvent_validRequest_shouldDelegateToService() throws JMSException {
         //given
         TrainerWorkloadRequest request = buildValidRequest();
+        Message rawMessage = buildRawMessage("tx-1");
         when(validator.validate(request)).thenReturn(List.of());
 
         //when
-        listener.onWorkloadEvent(request);
+        listener.onWorkloadEvent(request, rawMessage);
 
         //then
         verify(trainerWorkloadService).applyWorkload(request);
@@ -80,17 +87,33 @@ class TrainerWorkloadListenerTest {
     }
 
     @Test
+    @DisplayName("onWorkloadEvent: falls back to a generated transactionId when the JMS property is missing")
+    void onWorkloadEvent_missingTransactionIdProperty_shouldStillDelegateToService() throws JMSException {
+        //given
+        TrainerWorkloadRequest request = buildValidRequest();
+        Message rawMessage = buildRawMessage(null);
+        when(validator.validate(request)).thenReturn(List.of());
+
+        //when
+        listener.onWorkloadEvent(request, rawMessage);
+
+        //then
+        verify(trainerWorkloadService).applyWorkload(request);
+    }
+
+    @Test
     @DisplayName("onWorkloadEvent: routes invalid message to the DLQ and skips business processing")
-    void onWorkloadEvent_missingRequiredFields_shouldRouteToInvalidQueueAndSkipService() throws JsonProcessingException {
+    void onWorkloadEvent_missingRequiredFields_shouldRouteToInvalidQueueAndSkipService() throws JsonProcessingException, JMSException {
         //given
         TrainerWorkloadRequest request = new TrainerWorkloadRequest(
                 null, "Jane", "Smith", true, LocalDate.of(2026, 8, 1), 60, ActionType.ADD);
+        Message rawMessage = buildRawMessage("tx-2");
         List<String> validationErrors = List.of("trainerUsername is required");
         when(validator.validate(request)).thenReturn(validationErrors);
         when(objectMapper.writeValueAsString(request)).thenReturn("{\"trainerUsername\":null}");
 
         //when
-        listener.onWorkloadEvent(request);
+        listener.onWorkloadEvent(request, rawMessage);
 
         //then
         verify(trainerWorkloadService, never()).applyWorkload(any());
@@ -106,16 +129,17 @@ class TrainerWorkloadListenerTest {
 
     @Test
     @DisplayName("onWorkloadEvent: falls back to toString() for the DLQ payload when JSON serialization fails")
-    void onWorkloadEvent_serializationFailsForDlqPayload_shouldFallBackToToString() throws JsonProcessingException {
+    void onWorkloadEvent_serializationFailsForDlqPayload_shouldFallBackToToString() throws JsonProcessingException, JMSException {
         //given
         TrainerWorkloadRequest request = new TrainerWorkloadRequest(
                 null, null, null, null, null, null, null);
+        Message rawMessage = buildRawMessage("tx-3");
         List<String> validationErrors = List.of("trainerUsername is required", "trainingDate is required");
         when(validator.validate(request)).thenReturn(validationErrors);
         when(objectMapper.writeValueAsString(request)).thenThrow(new JsonProcessingException("boom") {});
 
         //when
-        listener.onWorkloadEvent(request);
+        listener.onWorkloadEvent(request, rawMessage);
 
         //then
         ArgumentCaptor<InvalidMessageInfo> captor = ArgumentCaptor.forClass(InvalidMessageInfo.class);
@@ -127,12 +151,13 @@ class TrainerWorkloadListenerTest {
 
     @Test
     @DisplayName("onWorkloadEvent: null request is treated as invalid and routed to the DLQ")
-    void onWorkloadEvent_nullRequest_shouldRouteToInvalidQueue() {
+    void onWorkloadEvent_nullRequest_shouldRouteToInvalidQueue() throws JMSException {
         //given
+        Message rawMessage = buildRawMessage("tx-4");
         when(validator.validate(null)).thenReturn(List.of("Message payload is null or could not be parsed as TrainerWorkloadRequest"));
 
         //when
-        listener.onWorkloadEvent(null);
+        listener.onWorkloadEvent(null, rawMessage);
 
         //then
         verify(trainerWorkloadService, never()).applyWorkload(any());

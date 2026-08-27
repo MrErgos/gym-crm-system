@@ -1,15 +1,23 @@
 package io.github.mrergos.workinghours.service.impl;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import io.github.mrergos.workinghours.dto.request.TrainerWorkloadRequest;
 import io.github.mrergos.workinghours.dto.response.TrainerWorkloadSummaryResponse;
 import io.github.mrergos.workinghours.dto.response.YearSummaryResponse;
 import io.github.mrergos.workinghours.entity.ActionType;
 import io.github.mrergos.workinghours.entity.MonthlySummary;
-import io.github.mrergos.workinghours.entity.Trainer;
+import io.github.mrergos.workinghours.entity.TrainerWorkloadSummaryDocument;
+import io.github.mrergos.workinghours.entity.YearSummary;
 import io.github.mrergos.workinghours.exception.EntityNotFoundException;
-import io.github.mrergos.workinghours.repository.MonthlySummaryRepository;
-import io.github.mrergos.workinghours.repository.TrainerRepository;
-import org.junit.jupiter.api.BeforeEach;
+import io.github.mrergos.workinghours.repository.TrainerWorkloadSummaryRepository;
+import java.time.LocalDate;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -20,38 +28,18 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TrainerWorkloadServiceImpl")
 class TrainerWorkloadServiceImplTest {
 
     @Mock
-    private TrainerRepository trainerRepository;
-
-    @Mock
-    private MonthlySummaryRepository monthlySummaryRepository;
+    private TrainerWorkloadSummaryRepository trainerSummaryRepository;
 
     @InjectMocks
     private TrainerWorkloadServiceImpl service;
 
     @Captor
-    private ArgumentCaptor<Trainer> trainerCaptor;
-
-    @Captor
-    private ArgumentCaptor<MonthlySummary> summaryCaptor;
+    private ArgumentCaptor<TrainerWorkloadSummaryDocument> summaryDocumentCaptor;
 
     private static final String USERNAME = "John.Doe";
     private static final int YEAR = 2026;
@@ -76,130 +64,128 @@ class TrainerWorkloadServiceImplTest {
         @Test
         @DisplayName("creates a new trainer when none exists yet")
         void createsNewTrainerWhenNotFound() {
-            when(trainerRepository.findById(USERNAME)).thenReturn(Optional.empty());
-            when(trainerRepository.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
-            when(monthlySummaryRepository.findByTrainer_UsernameAndYearAndMonth(USERNAME, YEAR, MONTH))
-                    .thenReturn(Optional.empty());
+            when(trainerSummaryRepository.findById(USERNAME)).thenReturn(Optional.empty());
+            when(trainerSummaryRepository.save(any(TrainerWorkloadSummaryDocument.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             TrainerWorkloadRequest request = buildRequest(ActionType.ADD, 60, true);
 
             service.applyWorkload(request);
 
-            verify(trainerRepository).save(trainerCaptor.capture());
-            Trainer savedTrainer = trainerCaptor.getValue();
-            assertThat(savedTrainer.getUsername()).isEqualTo(USERNAME);
-            assertThat(savedTrainer.getFirstName()).isEqualTo("John");
-            assertThat(savedTrainer.getLastName()).isEqualTo("Doe");
-            assertThat(savedTrainer.isActive()).isTrue();
+            verify(trainerSummaryRepository).save(summaryDocumentCaptor.capture());
+            TrainerWorkloadSummaryDocument saved = summaryDocumentCaptor.getValue();
+            assertThat(saved.getTrainerUsername()).isEqualTo(USERNAME);
+            assertThat(saved.getTrainerFirstName()).isEqualTo("John");
+            assertThat(saved.getTrainerLastName()).isEqualTo("Doe");
+            assertThat(saved.isTrainerStatus()).isTrue();
         }
 
         @Test
         @DisplayName("updates existing trainer's name and active status")
         void updatesExistingTrainer() {
-            Trainer existing = new Trainer(USERNAME, "Old", "Name", false);
-            when(trainerRepository.findById(USERNAME)).thenReturn(Optional.of(existing));
-            when(trainerRepository.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
-            when(monthlySummaryRepository.findByTrainer_UsernameAndYearAndMonth(USERNAME, YEAR, MONTH))
-                    .thenReturn(Optional.empty());
+            TrainerWorkloadSummaryDocument existing = new TrainerWorkloadSummaryDocument(USERNAME, "Old", "Name", false);
+            when(trainerSummaryRepository.findById(USERNAME)).thenReturn(Optional.of(existing));
+            when(trainerSummaryRepository.save(any(TrainerWorkloadSummaryDocument.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             TrainerWorkloadRequest request = buildRequest(ActionType.ADD, 30, true);
 
             service.applyWorkload(request);
 
-            verify(trainerRepository).save(trainerCaptor.capture());
-            Trainer saved = trainerCaptor.getValue();
-            assertThat(saved.getFirstName()).isEqualTo("John");
-            assertThat(saved.getLastName()).isEqualTo("Doe");
-            assertThat(saved.isActive()).isTrue();
+            verify(trainerSummaryRepository).save(summaryDocumentCaptor.capture());
+            TrainerWorkloadSummaryDocument saved = summaryDocumentCaptor.getValue();
+            assertThat(saved.getTrainerFirstName()).isEqualTo("John");
+            assertThat(saved.getTrainerLastName()).isEqualTo("Doe");
+            assertThat(saved.isTrainerStatus()).isTrue();
         }
 
         @Test
         @DisplayName("ADD action increases total duration for a new monthly summary")
         void addActionOnNewSummary() {
-            Trainer trainer = new Trainer(USERNAME, "John", "Doe", true);
-            when(trainerRepository.findById(USERNAME)).thenReturn(Optional.of(trainer));
-            when(trainerRepository.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
-            when(monthlySummaryRepository.findByTrainer_UsernameAndYearAndMonth(USERNAME, YEAR, MONTH))
-                    .thenReturn(Optional.empty());
+            TrainerWorkloadSummaryDocument document = new TrainerWorkloadSummaryDocument(USERNAME, "John", "Doe", true);
+            when(trainerSummaryRepository.findById(USERNAME)).thenReturn(Optional.of(document));
+            when(trainerSummaryRepository.save(any(TrainerWorkloadSummaryDocument.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             TrainerWorkloadRequest request = buildRequest(ActionType.ADD, 60, true);
 
             service.applyWorkload(request);
 
-            verify(monthlySummaryRepository).save(summaryCaptor.capture());
-            assertThat(summaryCaptor.getValue().getTotalDurationMinutes()).isEqualTo(60);
+            verify(trainerSummaryRepository).save(summaryDocumentCaptor.capture());
+            int duration = monthDuration(summaryDocumentCaptor.getValue(), YEAR, MONTH);
+            assertThat(duration).isEqualTo(60);
         }
 
         @Test
         @DisplayName("ADD action accumulates duration onto existing summary")
         void addActionAccumulatesOnExistingSummary() {
-            Trainer trainer = new Trainer(USERNAME, "John", "Doe", true);
-            MonthlySummary existingSummary = new MonthlySummary(trainer, YEAR, MONTH, 90);
-            when(trainerRepository.findById(USERNAME)).thenReturn(Optional.of(trainer));
-            when(trainerRepository.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
-            when(monthlySummaryRepository.findByTrainer_UsernameAndYearAndMonth(USERNAME, YEAR, MONTH))
-                    .thenReturn(Optional.of(existingSummary));
+            TrainerWorkloadSummaryDocument document = new TrainerWorkloadSummaryDocument(USERNAME, "John", "Doe", true);
+            document.getYears().add(yearWithMonth(YEAR, MONTH, 90));
+            when(trainerSummaryRepository.findById(USERNAME)).thenReturn(Optional.of(document));
+            when(trainerSummaryRepository.save(any(TrainerWorkloadSummaryDocument.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             TrainerWorkloadRequest request = buildRequest(ActionType.ADD, 30, true);
 
             service.applyWorkload(request);
 
-            verify(monthlySummaryRepository).save(summaryCaptor.capture());
-            assertThat(summaryCaptor.getValue().getTotalDurationMinutes()).isEqualTo(120);
+            verify(trainerSummaryRepository).save(summaryDocumentCaptor.capture());
+            int duration = monthDuration(summaryDocumentCaptor.getValue(), YEAR, MONTH);
+            assertThat(duration).isEqualTo(120);
         }
 
         @Test
         @DisplayName("DELETE action decreases total duration")
         void deleteActionDecreasesTotal() {
-            Trainer trainer = new Trainer(USERNAME, "John", "Doe", true);
-            MonthlySummary existingSummary = new MonthlySummary(trainer, YEAR, MONTH, 90);
-            when(trainerRepository.findById(USERNAME)).thenReturn(Optional.of(trainer));
-            when(trainerRepository.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
-            when(monthlySummaryRepository.findByTrainer_UsernameAndYearAndMonth(USERNAME, YEAR, MONTH))
-                    .thenReturn(Optional.of(existingSummary));
+            TrainerWorkloadSummaryDocument document = new TrainerWorkloadSummaryDocument(USERNAME, "John", "Doe", true);
+            document.getYears().add(yearWithMonth(YEAR, MONTH, 90));
+            when(trainerSummaryRepository.findById(USERNAME)).thenReturn(Optional.of(document));
+            when(trainerSummaryRepository.save(any(TrainerWorkloadSummaryDocument.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             TrainerWorkloadRequest request = buildRequest(ActionType.DELETE, 30, true);
 
             service.applyWorkload(request);
 
-            verify(monthlySummaryRepository).save(summaryCaptor.capture());
-            assertThat(summaryCaptor.getValue().getTotalDurationMinutes()).isEqualTo(60);
+            verify(trainerSummaryRepository).save(summaryDocumentCaptor.capture());
+            int duration = monthDuration(summaryDocumentCaptor.getValue(), YEAR, MONTH);
+            assertThat(duration).isEqualTo(60);
         }
 
         @Test
         @DisplayName("DELETE action clamps total duration to zero instead of going negative")
         void deleteActionClampsToZero() {
-            Trainer trainer = new Trainer(USERNAME, "John", "Doe", true);
-            MonthlySummary existingSummary = new MonthlySummary(trainer, YEAR, MONTH, 20);
-            when(trainerRepository.findById(USERNAME)).thenReturn(Optional.of(trainer));
-            when(trainerRepository.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
-            when(monthlySummaryRepository.findByTrainer_UsernameAndYearAndMonth(USERNAME, YEAR, MONTH))
-                    .thenReturn(Optional.of(existingSummary));
+            TrainerWorkloadSummaryDocument document = new TrainerWorkloadSummaryDocument(USERNAME, "John", "Doe", true);
+            document.getYears().add(yearWithMonth(YEAR, MONTH, 20));
+            when(trainerSummaryRepository.findById(USERNAME)).thenReturn(Optional.of(document));
+            when(trainerSummaryRepository.save(any(TrainerWorkloadSummaryDocument.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             TrainerWorkloadRequest request = buildRequest(ActionType.DELETE, 50, true);
 
             service.applyWorkload(request);
 
-            verify(monthlySummaryRepository).save(summaryCaptor.capture());
-            assertThat(summaryCaptor.getValue().getTotalDurationMinutes()).isEqualTo(0);
+            verify(trainerSummaryRepository).save(summaryDocumentCaptor.capture());
+            int duration = monthDuration(summaryDocumentCaptor.getValue(), YEAR, MONTH);
+            assertThat(duration).isEqualTo(0);
         }
 
         @Test
         @DisplayName("DELETE action resulting in exactly zero does not clamp/log a warning path issue")
         void deleteActionExactlyZero() {
-            Trainer trainer = new Trainer(USERNAME, "John", "Doe", true);
-            MonthlySummary existingSummary = new MonthlySummary(trainer, YEAR, MONTH, 60);
-            when(trainerRepository.findById(USERNAME)).thenReturn(Optional.of(trainer));
-            when(trainerRepository.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
-            when(monthlySummaryRepository.findByTrainer_UsernameAndYearAndMonth(USERNAME, YEAR, MONTH))
-                    .thenReturn(Optional.of(existingSummary));
+            TrainerWorkloadSummaryDocument document = new TrainerWorkloadSummaryDocument(USERNAME, "John", "Doe", true);
+            document.getYears().add(yearWithMonth(YEAR, MONTH, 60));
+            when(trainerSummaryRepository.findById(USERNAME)).thenReturn(Optional.of(document));
+            when(trainerSummaryRepository.save(any(TrainerWorkloadSummaryDocument.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             TrainerWorkloadRequest request = buildRequest(ActionType.DELETE, 60, true);
 
             service.applyWorkload(request);
 
-            verify(monthlySummaryRepository).save(summaryCaptor.capture());
-            assertThat(summaryCaptor.getValue().getTotalDurationMinutes()).isEqualTo(0);
+            verify(trainerSummaryRepository).save(summaryDocumentCaptor.capture());
+            int duration = monthDuration(summaryDocumentCaptor.getValue(), YEAR, MONTH);
+            assertThat(duration).isEqualTo(0);
         }
 
         @Test
@@ -208,26 +194,26 @@ class TrainerWorkloadServiceImplTest {
             assertThatThrownBy(() -> service.applyWorkload(null))
                     .isInstanceOf(IllegalArgumentException.class);
 
-            verify(trainerRepository, never()).findById(any());
-            verify(monthlySummaryRepository, never()).save(any());
+            verify(trainerSummaryRepository, never()).findById(any());
+            verify(trainerSummaryRepository, never()).save(any());
         }
 
         @Test
         @DisplayName("resolves year and month from the training date correctly")
         void resolvesYearAndMonthFromDate() {
-            Trainer trainer = new Trainer(USERNAME, "John", "Doe", true);
-            when(trainerRepository.findById(USERNAME)).thenReturn(Optional.of(trainer));
-            when(trainerRepository.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
+            TrainerWorkloadSummaryDocument document = new TrainerWorkloadSummaryDocument(USERNAME, "John", "Doe", true);
+            when(trainerSummaryRepository.findById(USERNAME)).thenReturn(Optional.of(document));
+            when(trainerSummaryRepository.save(any(TrainerWorkloadSummaryDocument.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
 
             TrainerWorkloadRequest request = new TrainerWorkloadRequest(
                     USERNAME, "John", "Doe", true, LocalDate.of(2025, 12, 25), 45, ActionType.ADD);
 
-            when(monthlySummaryRepository.findByTrainer_UsernameAndYearAndMonth(USERNAME, 2025, 12))
-                    .thenReturn(Optional.empty());
-
             service.applyWorkload(request);
 
-            verify(monthlySummaryRepository).findByTrainer_UsernameAndYearAndMonth(USERNAME, 2025, 12);
+            verify(trainerSummaryRepository).save(summaryDocumentCaptor.capture());
+            int duration = monthDuration(summaryDocumentCaptor.getValue(), 2025, 12);
+            assertThat(duration).isEqualTo(45);
         }
     }
 
@@ -238,7 +224,7 @@ class TrainerWorkloadServiceImplTest {
         @Test
         @DisplayName("throws EntityNotFoundException when trainer does not exist")
         void throwsWhenTrainerNotFound() {
-            when(trainerRepository.findWithSummariesByUsername(USERNAME)).thenReturn(Optional.empty());
+            when(trainerSummaryRepository.findById(USERNAME)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> service.getSummary(USERNAME))
                     .isInstanceOf(EntityNotFoundException.class)
@@ -248,8 +234,8 @@ class TrainerWorkloadServiceImplTest {
         @Test
         @DisplayName("returns summary with correct trainer fields")
         void returnsSummaryWithTrainerFields() {
-            Trainer trainer = new Trainer(USERNAME, "John", "Doe", true);
-            when(trainerRepository.findWithSummariesByUsername(USERNAME)).thenReturn(Optional.of(trainer));
+            TrainerWorkloadSummaryDocument document = new TrainerWorkloadSummaryDocument(USERNAME, "John", "Doe", true);
+            when(trainerSummaryRepository.findById(USERNAME)).thenReturn(Optional.of(document));
 
             TrainerWorkloadSummaryResponse response = service.getSummary(USERNAME);
 
@@ -263,26 +249,45 @@ class TrainerWorkloadServiceImplTest {
         @Test
         @DisplayName("groups monthly summaries by year, sorted by year and month")
         void groupsSummariesByYearAndMonth() {
-            Trainer trainer = new Trainer(USERNAME, "John", "Doe", true);
-            trainer.getSummaries().add(new MonthlySummary(trainer, 2026, 3, 120));
-            trainer.getSummaries().add(new MonthlySummary(trainer, 2025, 12, 60));
-            trainer.getSummaries().add(new MonthlySummary(trainer, 2026, 1, 90));
+            TrainerWorkloadSummaryDocument document = new TrainerWorkloadSummaryDocument(USERNAME, "John", "Doe", true);
+            YearSummary year2026 = new YearSummary(2026);
+            year2026.getMonths().add(new MonthlySummary(3, 120));
+            year2026.getMonths().add(new MonthlySummary(1, 90));
+            YearSummary year2025 = new YearSummary(2025);
+            year2025.getMonths().add(new MonthlySummary(12, 60));
+            document.getYears().add(year2026);
+            document.getYears().add(year2025);
 
-            when(trainerRepository.findWithSummariesByUsername(USERNAME)).thenReturn(Optional.of(trainer));
+            when(trainerSummaryRepository.findById(USERNAME)).thenReturn(Optional.of(document));
 
             TrainerWorkloadSummaryResponse response = service.getSummary(USERNAME);
 
             assertThat(response.years()).hasSize(2);
 
-            YearSummaryResponse year2025 = response.years().get(0);
-            assertThat(year2025.year()).isEqualTo(2025);
-            assertThat(year2025.months()).hasSize(1);
-            assertThat(year2025.months().get(0).month()).isEqualTo(12);
-            assertThat(year2025.months().get(0).trainingSummaryDuration()).isEqualTo(60);
+            YearSummaryResponse resultYear2025 = response.years().get(0);
+            assertThat(resultYear2025.year()).isEqualTo(2025);
+            assertThat(resultYear2025.months()).hasSize(1);
+            assertThat(resultYear2025.months().get(0).month()).isEqualTo(12);
+            assertThat(resultYear2025.months().get(0).trainingSummaryDuration()).isEqualTo(60);
 
-            YearSummaryResponse year2026 = response.years().get(1);
-            assertThat(year2026.year()).isEqualTo(2026);
-            assertThat(year2026.months()).extracting("month").containsExactly(1, 3);
+            YearSummaryResponse resultYear2026 = response.years().get(1);
+            assertThat(resultYear2026.year()).isEqualTo(2026);
+            assertThat(resultYear2026.months()).extracting("month").containsExactly(1, 3);
         }
+    }
+
+    private YearSummary yearWithMonth(int year, int month, int duration) {
+        YearSummary yearSummary = new YearSummary(year);
+        yearSummary.getMonths().add(new MonthlySummary(month, duration));
+        return yearSummary;
+    }
+
+    private int monthDuration(TrainerWorkloadSummaryDocument document, int year, int month) {
+        return document.getYears().stream()
+                .filter(y -> y.getYear() == year)
+                .findFirst()
+                .flatMap(y -> y.getMonths().stream().filter(m -> m.getMonth() == month).findFirst())
+                .map(MonthlySummary::getTotalDurationMinutes)
+                .orElseThrow(() -> new AssertionError("Month element not found: year=" + year + ", month=" + month));
     }
 }

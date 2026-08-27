@@ -48,8 +48,13 @@ class WorkloadSummaryRequestListenerTest {
     }
 
     private Message buildRawMessage(String correlationId, String replyQueueName) throws JMSException {
+        return buildRawMessage(correlationId, replyQueueName, "tx-default");
+    }
+
+    private Message buildRawMessage(String correlationId, String replyQueueName, String transactionId) throws JMSException {
         Message rawMessage = mock(Message.class);
         when(rawMessage.getJMSCorrelationID()).thenReturn(correlationId);
+        when(rawMessage.getStringProperty("transactionId")).thenReturn(transactionId);
         if (replyQueueName != null) {
             Queue replyQueue = mock(Queue.class);
             when(replyQueue.getQueueName()).thenReturn(replyQueueName);
@@ -68,7 +73,7 @@ class WorkloadSummaryRequestListenerTest {
         String correlationId = "corr-1";
         String replyQueueName = "workload.summary.reply";
         WorkloadSummaryRequest request = new WorkloadSummaryRequest(username);
-        Message rawMessage = buildRawMessage(correlationId, replyQueueName);
+        Message rawMessage = buildRawMessage(correlationId, replyQueueName, "tx-1");
 
         TrainerWorkloadSummaryResponse summary =
                 new TrainerWorkloadSummaryResponse(username, "Jane", "Smith", true, List.of());
@@ -90,6 +95,7 @@ class WorkloadSummaryRequestListenerTest {
         Message created = creatorCaptor.getValue().createMessage(session);
         assertEquals(replyMessage, created);
         verify(replyMessage).setJMSCorrelationID(correlationId);
+        verify(replyMessage).setStringProperty("transactionId", "tx-1");
 
         ArgumentCaptor<WorkloadSummaryReply> replyCaptor = ArgumentCaptor.forClass(WorkloadSummaryReply.class);
         verify(converter).toMessage(replyCaptor.capture(), eq(session));
@@ -107,7 +113,7 @@ class WorkloadSummaryRequestListenerTest {
         String correlationId = "corr-2";
         String replyQueueName = "workload.summary.reply";
         WorkloadSummaryRequest request = new WorkloadSummaryRequest(username);
-        Message rawMessage = buildRawMessage(correlationId, replyQueueName);
+        Message rawMessage = buildRawMessage(correlationId, replyQueueName, "tx-2");
 
         when(trainerWorkloadService.getSummary(username))
                 .thenThrow(new EntityNotFoundException("Trainer not found: " + username));
@@ -141,7 +147,7 @@ class WorkloadSummaryRequestListenerTest {
     void onSummaryRequest_missingReplyTo_shouldDiscardSilently() throws JMSException {
         //given
         WorkloadSummaryRequest request = new WorkloadSummaryRequest("Jane.Smith");
-        Message rawMessage = buildRawMessage("corr-3", null);
+        Message rawMessage = buildRawMessage("corr-3", null, "tx-3");
 
         //when
         listener.onSummaryRequest(request, rawMessage);
@@ -156,7 +162,7 @@ class WorkloadSummaryRequestListenerTest {
     void onSummaryRequest_missingCorrelationId_shouldDiscardSilently() throws JMSException {
         //given
         WorkloadSummaryRequest request = new WorkloadSummaryRequest("Jane.Smith");
-        Message rawMessage = buildRawMessage(null, "workload.summary.reply");
+        Message rawMessage = buildRawMessage(null, "workload.summary.reply", "tx-4");
 
         //when
         listener.onSummaryRequest(request, rawMessage);
@@ -171,7 +177,7 @@ class WorkloadSummaryRequestListenerTest {
     void onSummaryRequest_missingRequest_shouldDiscardSilently() throws JMSException {
         //given
         String replyQueueName = "workload.summary.reply";
-        Message rawMessage = buildRawMessage(null, replyQueueName);
+        Message rawMessage = buildRawMessage(null, replyQueueName, "tx-5");
 
         //when
         listener.onSummaryRequest(null, rawMessage);
@@ -179,5 +185,38 @@ class WorkloadSummaryRequestListenerTest {
         //then
         verify(jmsTemplate, never()).send(anyString(), any(MessageCreator.class));
         verify(trainerWorkloadService, never()).getSummary(anyString());
+    }
+
+    @Test
+    @DisplayName("onSummaryRequest: falls back to a generated transactionId when the JMS property is missing")
+    void onSummaryRequest_missingTransactionIdProperty_shouldStillProcessAndPropagateGeneratedId() throws JMSException {
+        //given
+        String username = "Jane.Smith";
+        String correlationId = "corr-6";
+        String replyQueueName = "workload.summary.reply";
+        WorkloadSummaryRequest request = new WorkloadSummaryRequest(username);
+        Message rawMessage = buildRawMessage(correlationId, replyQueueName, null);
+
+        TrainerWorkloadSummaryResponse summary =
+                new TrainerWorkloadSummaryResponse(username, "Jane", "Smith", true, List.of());
+        when(trainerWorkloadService.getSummary(username)).thenReturn(summary);
+
+        MessageConverter converter = mock(MessageConverter.class);
+        Message replyMessage = mock(Message.class);
+        Session session = mock(Session.class);
+        when(jmsTemplate.getMessageConverter()).thenReturn(converter);
+        when(converter.toMessage(any(WorkloadSummaryReply.class), eq(session))).thenReturn(replyMessage);
+
+        //when
+        listener.onSummaryRequest(request, rawMessage);
+
+        //then
+        ArgumentCaptor<MessageCreator> creatorCaptor = ArgumentCaptor.forClass(MessageCreator.class);
+        verify(jmsTemplate).send(eq(replyQueueName), creatorCaptor.capture());
+
+        Message created = creatorCaptor.getValue().createMessage(session);
+        assertEquals(replyMessage, created);
+        verify(replyMessage).setJMSCorrelationID(correlationId);
+        verify(replyMessage).setStringProperty(eq("transactionId"), anyString());
     }
 }
