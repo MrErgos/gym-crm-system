@@ -136,29 +136,6 @@ public class TrainerController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/{username}/workload")
-    @SecurityRequirement(name = "bearerAuth")
-    @Operation(
-            summary = "Get a trainer's monthly training-hours summary",
-            description = "Proxies to the working-hours-service and returns the trainer's full training-hours " +
-                    "summary, grouped by year and month, as accumulated from previously submitted workload events."
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Summary found"),
-            @ApiResponse(responseCode = "401", description = "Invalid or missing access token", content = @Content),
-            @ApiResponse(responseCode = "404", description = "No workload data found for this trainer", content = @Content),
-            @ApiResponse(responseCode = "503", description = "working-hours-service is currently unavailable", content = @Content)
-    })
-    public TrainerWorkloadSummaryResponse getTrainerWorkload(
-            @Parameter(description = "Username of the trainer") @PathVariable("username") String username) {
-        log.debug("Fetching workload summary for trainer: username={}", username);
-
-        TrainerWorkloadSummaryResponse response = workingHoursGateway.getWorkloadSummary(username);
-
-        log.debug("Workload summary returned for trainer: username={}, years={}", username, response.years().size());
-        return response;
-    }
-
     @GetMapping("/training-types")
     @Operation(
             summary = "List available training types",
