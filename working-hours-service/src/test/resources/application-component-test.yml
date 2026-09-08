@@ -1,0 +1,30 @@
+spring:
+  data:
+    mongodb:
+      auto-index-creation: true
+  cloud:
+    discovery:
+      enabled: false
+    eureka:
+      client:
+        enabled: false
+        register-with-eureka: false
+  artemis:
+    mode: native
+
+jms:
+  queues:
+    workload-events: test.workload.events
+    workload-events-invalid: test.workload.events.invalid.dlq
+    workload-request: test.workload.summary.request
+  listener:
+    concurrency: "1-3"
+
+security:
+  jwt:
+    secret: component-test-jwt-secret-value-must-be-long-enough-for-hmac256
+    expiration-ms: 100000
+
+logging:
+  level:
+    io.github.mrergos.workinghours: DEBUG
