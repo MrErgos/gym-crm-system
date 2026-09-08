@@ -1,0 +1,21 @@
+spring:
+  mongodb:
+    uri: ${MONGO_URI:mongodb://localhost:27017/workinghours_local}
+  artemis:
+    mode: native
+    broker-url: ${ARTEMIS_BROKER_URL:tcp://localhost:61616}
+    user: ${ARTEMIS_USER:artemis}
+    password: ${ARTEMIS_PASSWORD:artemis}
+
+jms:
+  queues:
+    workload-events: local.workload.events
+    workload-events-invalid: local.workload.events.invalid.dlq
+    workload-request: local.workload.summary.request
+  listener:
+    concurrency: "3-10"
+
+logging:
+  level:
+    io.github.mrergos.workinghours: DEBUG
+    web: debug

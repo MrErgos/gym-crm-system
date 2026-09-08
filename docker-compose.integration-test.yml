@@ -1,0 +1,53 @@
+name: gym-crm-integration-test
+
+services:
+  mongo:
+    image: mongo:7.0
+    networks: [it-net]
+
+  artemis:
+    image: apache/activemq-artemis:2.37.0
+    environment:
+      ARTEMIS_USER: artemis
+      ARTEMIS_PASSWORD: artemis
+      ANONYMOUS_LOGIN: "false"
+    volumes:
+      - artemis-data:/var/lib/artemis-instance
+    restart: unless-stopped
+    networks: [it-net]
+
+  working-hours-service:
+    build:
+      context: .
+      dockerfile: working-hours-service/Dockerfile
+    depends_on: [mongo, artemis]
+    environment:
+      EUREKA_CLIENT_ENABLED: "false"
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_MONGODB_URI: mongodb://mongo:27017/workinghours_integration_test
+      ARTEMIS_BROKER_URL: tcp://artemis:61616
+      ARTEMIS_USER: artemis
+      ARTEMIS_PASSWORD: artemis
+      JWT_SECRET: integration-test-secret-key-must-be-at-least-256-bits-long!!
+    networks: [it-net]
+
+  gym-crm-system:
+    build:
+      context: .
+      dockerfile: gym-crm-system/Dockerfile
+    depends_on: [artemis, working-hours-service]
+    environment:
+      EUREKA_CLIENT_ENABLED: "false"
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_URL: jdbc:h2:mem:gymcrm;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      ARTEMIS_BROKER_URL: tcp://artemis:61616
+      ARTEMIS_USER: artemis
+      ARTEMIS_PASSWORD: artemis
+      JWT_SECRET: integration-test-secret-key-must-be-at-least-256-bits-long!!
+    networks: [it-net]
+
+volumes:
+  artemis-data:
+
+networks:
+  it-net:
